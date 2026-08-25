@@ -92,4 +92,4 @@ Este projeto é disponibilizado publicamente apenas para fins de portfólio e de
 
 ---
 
-<p align="center">Feito com 🍔 para a gestão do dia a dia.</p>
+<p align="center">Feito com Lira's Lanche🍔 para a gestão do dia a dia.</p>
