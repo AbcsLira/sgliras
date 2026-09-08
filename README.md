@@ -2,6 +2,14 @@
 
 Sistema de gestão desenvolvido sob medida para uma lanchonete, cobrindo controle de estoque, inventário físico, fichas de custo e um módulo financeiro completo. Construído como uma aplicação web local, acessível pela rede interna do estabelecimento.
 
+## Tela de Login
+<img width="1600" height="950" alt="00_login" src="https://github.com/user-attachments/assets/36301319-9932-463b-8235-7cd06c995212" />
+
+
+## Dashboard
+<img width="1600" height="950" alt="01_dashboard" src="https://github.com/user-attachments/assets/6e491f6e-2a51-4c1a-9b0c-8e9378476eec" />
+
+
 ## ✨ Funcionalidades
 
 ### 📦 Estoque
@@ -11,15 +19,23 @@ Sistema de gestão desenvolvido sob medida para uma lanchonete, cobrindo control
 - Alertas automáticos de estoque baixo e produtos próximos do vencimento
 - Listagem para impressão com filtros por categoria, nome e situação de estoque
 
+<img width="1600" height="950" alt="02_produtos" src="https://github.com/user-attachments/assets/f5e615a2-cbd3-45f2-b398-fa75ffc20405" />
+
 ### 🔢 Inventário Físico
 - Contagem estruturada por categoria, com progresso salvo a qualquer momento
 - Histórico completo de inventários, com divergências registradas
 - Ajuste automático do estoque ao finalizar
 
+<img width="1600" height="950" alt="05_inventario" src="https://github.com/user-attachments/assets/3fe44a70-c6b7-46af-9a17-b26db96b4685" />
+
+
 ### 🧾 Fichas de Custo
 - Cálculo de custo de produção por receita/ficha
 - Vínculo com custos fixos e histórico de variação de preço
 - Comparativo entre fichas
+
+<img width="1600" height="950" alt="04_fichas" src="https://github.com/user-attachments/assets/e67a9d14-4fe3-4b7f-a927-a402cc000035" />
+
 
 ### 🏢 Fornecedores
 - Cadastro com vínculo a produtos e preços específicos
@@ -31,6 +47,8 @@ Sistema de gestão desenvolvido sob medida para uma lanchonete, cobrindo control
 - Controle de fornecimento e pagamento de itens recorrentes (ex: pães, insumos por peso)
 - Metas mensais de venda com acompanhamento visual
 - Relatórios: resumo mensal, comparativo mês a mês, comparativo de finais de semana, resultado do período
+
+<img width="1600" height="950" alt="06_fechamento_diario" src="https://github.com/user-attachments/assets/5071b4df-61bb-47c5-a0fe-9d83d2c7ac5a" />
 
 ### 🔐 Administração
 - Perfis de usuário com permissões (admin, estoquista, caixa)
