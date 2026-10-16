@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import request, jsonify, session
 from ..banco_dados import get_db
 from ..seguranca import login_requerido
+from ..pesquisa import termos_da_busca, texto_corresponde_busca
 
 @login_requerido
 def dashboard():
@@ -82,12 +83,12 @@ def listagem_pdf():
     if filtro_cat:
         query += " AND LOWER(c.nome) = LOWER(?)"
         params.append(filtro_cat)
-    if filtro_nome:
-        query += " AND LOWER(p.nome) LIKE LOWER(?)"
-        params.append(f"%{filtro_nome}%")
     query += " ORDER BY c.nome, p.nome"
     rows=db.execute(query, params).fetchall()
     db.close()
+    if filtro_nome:
+        termos = termos_da_busca(filtro_nome)
+        rows = [row for row in rows if texto_corresponde_busca(row['nome'], termos)]
 
     eh_admin = session.get("perfil") == "admin"
     lista = []

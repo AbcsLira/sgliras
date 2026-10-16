@@ -42,10 +42,11 @@ const filtrarEntradaLoteBuscaAoDigitar=adiarBusca(filtrarEntradaLoteBusca);
 function filtrarEntradaLoteBusca(){
   filtrarEntradaLoteBuscaAoDigitar.cancelar();
   const q=document.getElementById('entrada-lote-busca').value.trim().toLowerCase();
+  const termos=termosDaBusca(q);
   const lista=document.getElementById('entrada-lote-lista');
   let itens=produtos;
   if(entradaLoteCatFiltro) itens=itens.filter(p=>p.categoria===entradaLoteCatFiltro);
-  if(q) itens=itens.filter(p=>produtoCorrespondeBusca(p,q));
+  if(termos.length) itens=itens.filter(p=>produtoCorrespondeBusca(p,termos));
   if(!itens.length){lista.innerHTML='<div style="padding:9px;color:var(--muted);font-size:12px">Nenhum produto encontrado</div>';return;}
   lista.innerHTML=avisoLimiteSeletor(itens.length)+itens.slice(0,LIMITE_RESULTADOS_SELETOR).map(p=>`<div class="p-opt" onclick="adicionarItemEntradaLote(${p.id})">
     <div>

@@ -139,6 +139,7 @@ async function filtrarCompraBusca(){
   filtrarCompraBuscaAoDigitar.cancelar();
   const versao=++compraBuscaVersao;
   const q=document.getElementById('compra-busca').value.trim().toLowerCase();
+  const termos=termosDaBusca(q);
   const lista=document.getElementById('compra-lista-busca');
   const fornecedorId=compraFornFiltro;
   const cache=produtosPorFornecedorCache;
@@ -173,7 +174,7 @@ async function filtrarCompraBusca(){
   const jaAdicionados=new Set(listaCompras.map(item=>item.produto_id));
   baseItens=baseItens.filter(p=>!jaAdicionados.has(p.id));
 
-  const itens=q?baseItens.filter(p=>produtoCorrespondeBusca(p,q)):baseItens;
+  const itens=termos.length?baseItens.filter(p=>produtoCorrespondeBusca(p,termos)):baseItens;
   if(!itens.length){lista.innerHTML='<div style="padding:9px;color:var(--muted);font-size:12px">Nenhum produto encontrado</div>';return;}
   lista.innerHTML=avisoLimiteSeletor(itens.length)+itens.slice(0,LIMITE_RESULTADOS_SELETOR).map(p=>{
     const precoInfo=fornecedorId&&p.preco_fornecedor!=null?` · <span style="color:var(--accent2)">${fmtR(p.preco_fornecedor)}</span>`:'';

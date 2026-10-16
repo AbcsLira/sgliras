@@ -56,6 +56,11 @@ As buscas locais agrupam a digitação por 150 ms. Os seletores mostram até 50
 resultados e continuam pesquisando o catálogo completo; scanners, categorias
 e abertura dos modais respondem imediatamente. A tabela de produtos oferece
 paginação de 25, 50 ou 100 linhas e preserva os filtros ao atualizar os dados.
+Tabela e seletores procuram todas as palavras digitadas em qualquer ordem,
+ignorando acentos e maiúsculas, nos campos nome, código e código de barras.
+Por exemplo, `molho pizza` encontra `Molho de Pizza`. A prévia e a API da
+listagem para impressão aplicam a mesma regra ao filtro por nome. A leitura
+do scanner continua exigindo o código de barras exato.
 
 No inventário, editar uma contagem atualiza apenas sua diferença e os
 contadores, preservando foco e rolagem. Campo apagado ou quantidade inválida

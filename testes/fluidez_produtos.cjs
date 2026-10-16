@@ -76,6 +76,25 @@ test('filtros, página e busca persistem em atualização e página fica válida
   assert.equal(rows(b),10);assert.equal(b.element('produtos-proxima').disabled,true);
 });
 
+test('catálogo busca todas as palavras em qualquer ordem, sem acentos, e mantém códigos',()=>{
+  const b=browser();
+  setProducts(b,[
+    {...products(1)[0],nome:'Molho de Pizza',codigo:'MP-01',codigo_barras:'007890123'},
+    {...products(1)[0],id:2,nome:'Açaí Especial',codigo:'AC-02',codigo_barras:null},
+    {...products(1)[0],id:3,nome:'Molho de Tomate',codigo:'MT-03',codigo_barras:'789000003'},
+  ]);
+  b.run('renderProdutos()');
+  for(const busca of ['molho pizza','PIZZA molho','  mol\t pizz  ','MP-01','007890123']){
+    b.type(busca);b.flush();
+    assert.equal(rows(b),1,busca);
+    assert.match(b.element('t-produtos').innerHTML,/Molho de Pizza/);
+  }
+  b.type('especial acai');b.flush();assert.equal(rows(b),1);
+  assert.match(b.element('t-produtos').innerHTML,/Açaí Especial/);
+  b.type('pizza tomate');b.flush();assert.equal(rows(b),0);
+  b.type('   ');b.flush();assert.equal(rows(b),3);
+});
+
 test('mudar categoria imediatamente cancela digitação pendente; tamanho da página é respeitado',()=>{
   const b=browser();setProducts(b);b.type('Produto');
   b.run('filtroCatId=2;renderProdutos()');

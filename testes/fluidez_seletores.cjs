@@ -89,6 +89,20 @@ const seletores = [
 ];
 
 for (const seletor of seletores) {
+  test(`${seletor.nome}: combina palavras fora de ordem e ignora acentos`, async () => {
+    const n = navegador();
+    n.produtos.at(-1).nome = 'Molho de Pizza com Açaí';
+    for (const busca of ['molho pizza', 'ACAI pizza MOLHO', '  pizz\t mol  ']) {
+      n.entrada(seletor.entrada, busca);
+      await n.executar(`${seletor.filtro}()`);
+      assert.equal(n.opcoes(seletor.lista), 1, busca);
+      assert.match(n.elemento(seletor.lista).innerHTML, /Molho de Pizza com Açaí/);
+    }
+    n.entrada(seletor.entrada, 'molho tomate');
+    await n.executar(`${seletor.filtro}()`);
+    assert.equal(n.opcoes(seletor.lista), 0);
+  });
+
   test(`${seletor.nome}: renderiza 50 opções sem truncar o catálogo`, async () => {
     const n = navegador();
     await n.executar(`${seletor.filtro}()`);

@@ -46,7 +46,10 @@ function atualizarPreviewListagem(){
   const cats=[...document.querySelectorAll('#lst-cat-chips .cat-chip.active')].map(e=>e.dataset.cat);
   let lista=produtos;
   if(cats.length) lista=lista.filter(p=>cats.includes(p.categoria));
-  if(nome) lista=lista.filter(p=>p.nome.toLowerCase().includes(nome));
+  if(nome){
+    const termos=termosDaBusca(nome);
+    lista=lista.filter(p=>textoCorrespondeBusca(p.nome,termos));
+  }
   lista=lstFiltrarPorEstoque(lista, lstGetEstoqueFiltro());
   const prev=document.getElementById('lst-preview');
   if(lista.length===0) prev.innerHTML='<span style="color:var(--danger)">Nenhum produto encontrado com esses filtros.</span>';

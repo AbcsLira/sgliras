@@ -122,7 +122,10 @@ function renderProdutos(busca=null){
   filtroProdutosAnterior=filtro;
   if(!mostrarInativos) lista=lista.filter(p=>p.ativo!==0);
   if(filtroCatId) lista=lista.filter(p=>p.categoria_id===filtroCatId);
-  if(busca) lista=lista.filter(p=>[p.nome,p.codigo,p.codigo_barras].some(valor=>String(valor??'').toLowerCase().includes(busca)));
+  if(busca){
+    const termos=termosDaBusca(busca);
+    lista=lista.filter(p=>produtoCorrespondeBusca(p,termos));
+  }
 
   const total=lista.length, paginas=Math.max(1,Math.ceil(total/tamanhoPaginaProdutos));
   paginaProdutos=Math.min(paginas,Math.max(1,paginaProdutos));
