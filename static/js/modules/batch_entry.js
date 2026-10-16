@@ -3,9 +3,13 @@
 // ═══════════════════════════════════════
 let entradaLoteItens=[];
 let entradaLoteCatFiltro=null;
+let entradaLoteEstado=criarEstadoLote('entrada-lote');
 
 async function abrirModalEntradaLote(){
+  if(entradaLoteEstado.enviando) return;
+  if(reabrirOperacaoPendente(entradaLoteEstado,'modal-entrada-lote')) return;
   if(!produtos.length) produtos=await fetch('/api/produtos').then(r=>r.json());
+  entradaLoteEstado=criarEstadoLote('entrada-lote');
   entradaLoteItens=[];
   entradaLoteCatFiltro=null;
   document.getElementById('entrada-lote-busca').value='';
@@ -140,34 +144,35 @@ function renderEntradaLoteItens(){
 }
 
 async function confirmarEntradaLote(){
-  if(!entradaLoteItens.length){toast('Adicione pelo menos um produto','var(--danger)');return;}
-  const validade=document.getElementById('entrada-lote-validade').value||null;
-  const obs=document.getElementById('entrada-lote-obs').value||'Entrada em lote';
+  if(entradaLoteEstado.enviando) return;
+  recuperarOperacaoPendente(entradaLoteEstado);
+  const itens=entradaLoteEstado.incerta?entradaLoteEstado.payloadOriginal.itens:[];
+  if(!entradaLoteEstado.incerta){
+    if(!entradaLoteItens.length){toast('Adicione pelo menos um produto','var(--danger)');return;}
+    const validade=document.getElementById('entrada-lote-validade').value||null;
+    const obs=document.getElementById('entrada-lote-obs').value||'Entrada em lote';
 
-  let sucesso=0, erros=[];
-  for(const item of entradaLoteItens){
-    // Converter para unidades se estiver em modo embalagem
-    const qtdUnidades=item.modoEmbalagem
-      ? item.quantidade*item.unid_por_fardo
-      : item.quantidade;
-    const res=await fetch('/api/movimentacoes',{method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        produto_id:item.produto_id,
-        tipo:'entrada',
-        quantidade:qtdUnidades,
-        observacao:obs,
-        validade:validade
-      })});
-    const d=await res.json();
-    if(d.erro) erros.push(`${item.nome}: ${d.erro}`);
-    else sucesso++;
+    for(const item of entradaLoteItens){
+      // Converter para unidades se estiver em modo embalagem
+      const qtdUnidades=item.modoEmbalagem
+        ? item.quantidade*item.unid_por_fardo
+        : item.quantidade;
+      if(!Number.isFinite(qtdUnidades)||qtdUnidades<=0){
+        toast(`Informe uma quantidade válida para ${item.nome}`,'var(--danger)');
+        return;
+      }
+      itens.push({produto_id:item.produto_id,tipo:'entrada',quantidade:qtdUnidades,observacao:obs,validade});
+    }
   }
 
-  if(erros.length) toast(`${sucesso} ok, ${erros.length} com erro: ${erros[0]}`,'var(--danger)');
-  else toast(`Entrada de ${sucesso} produto${sucesso>1?'s':''} registrada com sucesso! 📦`);
-
+  const d=await enviarOperacaoAtomica(entradaLoteEstado,'/api/movimentacoes/lote',{itens},'modal-entrada-lote');
+  if(!d) return;
+  toast(d.tentativaAnterior?'Entrada anterior confirmada. Alterações atuais não foram enviadas.':`Entrada de ${itens.length} produto${itens.length>1?'s':''} registrada com sucesso! 📦`);
   fecharModal('modal-entrada-lote');
-  produtos=await fetch('/api/produtos').then(r=>r.json());
-  carregarMovimentacoes();
+  try{
+    produtos=await fetch('/api/produtos').then(r=>{if(!r.ok) throw new Error();return r.json();});
+    await carregarMovimentacoes();
+  } catch(erro){
+    toast('Entrada registrada. Recarregue a página para atualizar o estoque.','var(--danger)');
+  }
 }

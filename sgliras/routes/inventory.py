@@ -1,8 +1,35 @@
 """Rotas: inventory."""
+from contextlib import closing
 from datetime import datetime
 from flask import request, jsonify, session
 from ..database import get_db
 from ..security import login_requerido, permissao_requerida
+from ..validation import ValidationError, json_object, number, text
+
+
+def _contagens(dados, parcial=False):
+    """Valida o lote inteiro antes de permitir qualquer gravação."""
+    itens = dados.get("itens")
+    if not isinstance(itens, list) or (not parcial and not itens):
+        raise ValidationError("Informe uma lista de itens para contagem.")
+    validados = []
+    produtos = set()
+    for item in itens:
+        if not isinstance(item, dict):
+            raise ValidationError("Cada item da contagem deve ser um objeto JSON.")
+        pid = number(item.get("produto_id"), "Produto", minimum=1, integer=True)
+        if pid > 9223372036854775807:
+            raise ValidationError("Produto deve ser um identificador válido.")
+        if pid in produtos:
+            raise ValidationError("Não repita um produto na mesma contagem.")
+        produtos.add(pid)
+        contada = item.get("quantidade_contada")
+        # A tela envia null para produtos que ainda não foram contados.
+        if contada is not None or not parcial:
+            contada = number(contada, "Quantidade contada", minimum=0)
+        observacao = text(item.get("observacao"), "Observação", required=False)
+        validados.append((pid, contada, observacao))
+    return validados
 
 @login_requerido
 def produtos_para_inventario():
@@ -50,15 +77,11 @@ def listar_inventarios():
 @login_requerido
 @permissao_requerida("produtos")
 def criar_inventario():
-    d = request.get_json(silent=True) or {}
-    categoria = d.get("categoria") or None
-    titulo = d.get("titulo") or ("Inventário — " + (categoria or "Geral"))
-    db = get_db()
-    # Verificar se há inventário aberto
-    aberto = db.execute("SELECT id FROM inventarios WHERE status='aberto'").fetchone()
-    if aberto:
-        db.close()
-        return jsonify({"erro": "Já existe um inventário em aberto. Finalize-o antes de criar outro."}), 400
+    d = json_object()
+    categoria = text(d.get("categoria"), "Categoria", required=False) or None
+    titulo = (text(d.get("titulo"), "Título", required=False)
+              or ("Inventário — " + (categoria or "Geral")))
+    observacao = text(d.get("observacao"), "Observação", required=False)
     # Buscar produtos
     query = """
         SELECT p.id, p.quantidade,
@@ -72,20 +95,23 @@ def criar_inventario():
         query += " AND LOWER(c.nome) = LOWER(?)"
         params.append(categoria)
     query += " ORDER BY c.nome, p.nome"
-    prods = db.execute(query, params).fetchall()
-    agora = datetime.now().isoformat()
-    cur = db.execute(
-        "INSERT INTO inventarios (titulo,status,categoria,observacao,usuario_id,criado_em) VALUES (?,?,?,?,?,?)",
-        (titulo, "aberto", categoria, d.get("observacao",""), session.get("usuario_id"), agora)
-    )
-    inv_id = cur.lastrowid
-    for p in prods:
-        db.execute(
-            "INSERT INTO inventario_itens (inventario_id,produto_id,quantidade_sistema) VALUES (?,?,?)",
-            (inv_id, p["id"], p["quantidade"])
+    with closing(get_db()) as db, db:
+        db.execute("BEGIN IMMEDIATE")
+        aberto = db.execute("SELECT id FROM inventarios WHERE status='aberto'").fetchone()
+        if aberto:
+            return jsonify({"erro": "Já existe um inventário em aberto. Finalize-o antes de criar outro."}), 400
+        prods = db.execute(query, params).fetchall()
+        agora = datetime.now().isoformat()
+        cur = db.execute(
+            "INSERT INTO inventarios (titulo,status,categoria,observacao,usuario_id,criado_em) VALUES (?,?,?,?,?,?)",
+            (titulo, "aberto", categoria, observacao, session.get("usuario_id"), agora)
         )
-    db.commit()
-    db.close()
+        inv_id = cur.lastrowid
+        for p in prods:
+            db.execute(
+                "INSERT INTO inventario_itens (inventario_id,produto_id,quantidade_sistema) VALUES (?,?,?)",
+                (inv_id, p["id"], p["quantidade"])
+            )
     return jsonify({"ok": True, "id": inv_id}), 201
 
 
@@ -113,29 +139,30 @@ def obter_inventario(inv_id):
 @permissao_requerida("produtos")
 def salvar_itens_inventario(inv_id):
     """Salva contagens parciais sem finalizar."""
-    d = request.get_json(silent=True) or {}
-    itens = d.get("itens", [])
-    db = get_db()
-    inv = db.execute("SELECT status FROM inventarios WHERE id=?", (inv_id,)).fetchone()
-    if not inv or inv["status"] != "aberto":
-        db.close(); return jsonify({"erro": "Inventário não encontrado ou já finalizado"}), 400
-    for item in itens:
-        contada = item.get("quantidade_contada")
-        if contada is None:
-            continue
-        contada = float(contada)
-        sistema = db.execute(
-            "SELECT quantidade_sistema FROM inventario_itens WHERE inventario_id=? AND produto_id=?",
-            (inv_id, item["produto_id"])
-        ).fetchone()
-        if not sistema:
-            continue
-        diff = round(contada - sistema["quantidade_sistema"], 4)
-        db.execute(
+    itens = _contagens(json_object(), parcial=True)
+    with closing(get_db()) as db, db:
+        # A situação do inventário não pode mudar entre a leitura e a escrita.
+        db.execute("BEGIN IMMEDIATE")
+        inv = db.execute("SELECT status FROM inventarios WHERE id=?", (inv_id,)).fetchone()
+        if not inv or inv["status"] != "aberto":
+            return jsonify({"erro": "Inventário não encontrado ou já finalizado"}), 400
+        alteracoes = []
+        for pid, contada, observacao in itens:
+            sistema = db.execute(
+                "SELECT quantidade_sistema FROM inventario_itens WHERE inventario_id=? AND produto_id=?",
+                (inv_id, pid)
+            ).fetchone()
+            if not sistema:
+                raise ValidationError("Um dos produtos não pertence a este inventário.")
+            if contada is None:
+                continue
+            quantidade_sistema = number(sistema["quantidade_sistema"], "Quantidade no sistema")
+            diff = number(round(contada - quantidade_sistema, 4), "Diferença de estoque")
+            alteracoes.append((contada, diff, observacao, inv_id, pid))
+        db.executemany(
             "UPDATE inventario_itens SET quantidade_contada=?, diferenca=?, observacao=? WHERE inventario_id=? AND produto_id=?",
-            (contada, diff, item.get("observacao",""), inv_id, item["produto_id"])
+            alteracoes
         )
-    db.commit(); db.close()
     return jsonify({"ok": True})
 
 
@@ -143,37 +170,41 @@ def salvar_itens_inventario(inv_id):
 @permissao_requerida("produtos")
 def finalizar_inventario(inv_id):
     """Finaliza o inventário aplicando os ajustes de estoque."""
-    db = get_db()
-    inv = db.execute("SELECT * FROM inventarios WHERE id=?", (inv_id,)).fetchone()
-    if not inv or inv["status"] != "aberto":
-        db.close(); return jsonify({"erro": "Inventário não encontrado ou já finalizado"}), 400
-    itens = db.execute(
-        "SELECT * FROM inventario_itens WHERE inventario_id=? AND quantidade_contada IS NOT NULL",
-        (inv_id,)
-    ).fetchall()
-    agora = datetime.now().isoformat()
     ajustados = 0
     abaixo_minimo = []
-    for item in itens:
-        if item["diferenca"] is None or abs(item["diferenca"]) < 0.0001:
-            continue
-        contada = item["quantidade_contada"]
-        db.execute("UPDATE produtos SET quantidade=? WHERE id=?", (contada, item["produto_id"]))
-        obs = f"Inventário #{inv_id} — {inv['titulo']} (anterior: {item['quantidade_sistema']})"
+    with closing(get_db()) as db, db:
+        # Serializa finalizações, salvamentos e outras gravações de estoque.
+        db.execute("BEGIN IMMEDIATE")
+        inv = db.execute("SELECT * FROM inventarios WHERE id=?", (inv_id,)).fetchone()
+        if not inv or inv["status"] != "aberto":
+            return jsonify({"erro": "Inventário não encontrado ou já finalizado"}), 400
+        itens = db.execute("""
+            SELECT ii.*, p.quantidade AS quantidade_atual, p.nome, p.estoque_min
+            FROM inventario_itens ii JOIN produtos p ON p.id=ii.produto_id
+            WHERE ii.inventario_id=? AND ii.quantidade_contada IS NOT NULL
+        """, (inv_id,)).fetchall()
+        # Valida também dados antigos, salvos antes da validação de entrada.
+        contagens = [(item, number(item["quantidade_contada"], "Quantidade contada", minimum=0),
+                      number(item["quantidade_atual"], "Quantidade atual")) for item in itens]
+        agora = datetime.now().isoformat()
+        for item, contada, atual in contagens:
+            # Contagem é absoluta. Movimentos feitos após abrir o inventário
+            # não podem fazer uma contagem igual ao saldo inicial ser ignorada.
+            if contada == atual:
+                continue
+            db.execute("UPDATE produtos SET quantidade=? WHERE id=?", (contada, item["produto_id"]))
+            obs = f"Inventário #{inv_id} — {inv['titulo']} (anterior: {atual})"
+            db.execute(
+                "INSERT INTO movimentacoes (produto_id,usuario_id,tipo,quantidade,observacao,criado_em) VALUES (?,?,?,?,?,?)",
+                (item["produto_id"], session.get("usuario_id"), "ajuste", contada, obs, agora)
+            )
+            ajustados += 1
+            if contada <= item["estoque_min"]:
+                abaixo_minimo.append({"produto_id": item["produto_id"], "nome": item["nome"]})
         db.execute(
-            "INSERT INTO movimentacoes (produto_id,usuario_id,tipo,quantidade,observacao,criado_em) VALUES (?,?,?,?,?,?)",
-            (item["produto_id"], session.get("usuario_id"), "ajuste", contada, obs, agora)
+            "UPDATE inventarios SET status='finalizado', finalizado_em=? WHERE id=?",
+            (agora, inv_id)
         )
-        ajustados += 1
-        # Verificar se ficou abaixo do mínimo após ajuste
-        p = db.execute("SELECT nome, estoque_min FROM produtos WHERE id=?", (item["produto_id"],)).fetchone()
-        if p and contada <= p["estoque_min"]:
-            abaixo_minimo.append({"produto_id": item["produto_id"], "nome": p["nome"]})
-    db.execute(
-        "UPDATE inventarios SET status='finalizado', finalizado_em=? WHERE id=?",
-        (agora, inv_id)
-    )
-    db.commit(); db.close()
     return jsonify({"ok": True, "ajustados": ajustados, "abaixo_minimo": abaixo_minimo})
 
 
@@ -190,20 +221,19 @@ def cancelar_inventario(inv_id):
 @permissao_requerida("produtos")
 def aplicar_contagem_inventario():
     """Mantido para compatibilidade com a contagem rápida existente."""
-    d = request.get_json(silent=True) or {}
-    itens = d.get("itens", [])
-    if not itens:
-        return jsonify({"erro": "Nenhum item informado"}), 400
-    db = get_db()
-    try:
-        aplicados = []
-        for item in itens:
-            pid = item["produto_id"]
-            contada = float(item["quantidade_contada"])
+    itens = _contagens(json_object())
+    aplicados = []
+    with closing(get_db()) as db, db:
+        db.execute("BEGIN IMMEDIATE")
+        contagens = []
+        for pid, contada, _observacao in itens:
             p = db.execute("SELECT quantidade FROM produtos WHERE id=?", (pid,)).fetchone()
-            if not p: continue
-            atual = p["quantidade"]
-            if abs(contada - atual) < 0.0001: continue
+            if not p:
+                raise ValidationError("Um dos produtos não foi encontrado.")
+            contagens.append((pid, contada, number(p["quantidade"], "Quantidade atual")))
+        for pid, contada, atual in contagens:
+            if contada == atual:
+                continue
             db.execute("UPDATE produtos SET quantidade=? WHERE id=?", (contada, pid))
             obs = f"Contagem rápida de inventário (anterior: {atual})"
             db.execute(
@@ -211,12 +241,7 @@ def aplicar_contagem_inventario():
                 (pid, session["usuario_id"], "ajuste", contada, obs, datetime.now().isoformat())
             )
             aplicados.append({"produto_id": pid, "anterior": atual, "novo": contada, "diferenca": contada-atual})
-        db.commit()
-        return jsonify({"ok": True, "ajustados": len(aplicados), "detalhes": aplicados}), 201
-    except Exception as e:
-        db.rollback(); return jsonify({"erro": str(e)}), 500
-    finally:
-        db.close()
+    return jsonify({"ok": True, "ajustados": len(aplicados), "detalhes": aplicados}), 201
 
 
 

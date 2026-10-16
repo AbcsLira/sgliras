@@ -1,6 +1,114 @@
 // ═══════════════════════════════════════
 // Movimentações
 // ═══════════════════════════════════════
+// Compartilhado pelos formulários de lote: a mesma tentativa conserva o ID
+// mesmo quando a resposta se perde, para o servidor não repetir a gravação.
+function criarEstadoLote(tipo){
+  return {tipo,enviando:false,incerta:false,conteudo:null,operacaoId:null,payloadOriginal:null,recuperada:false};
+}
+
+function chaveOperacaoPendente(estado){
+  const usuarioId=typeof me!=='undefined'&&me.id;
+  return usuarioId&&estado.tipo ? `sgliras:operacao-pendente:${usuarioId}:${estado.tipo}` : null;
+}
+
+function recuperarOperacaoPendente(estado){
+  if(estado.recuperada) return;
+  const chave=chaveOperacaoPendente(estado);
+  if(!chave) return;
+  estado.recuperada=true;
+  try{
+    const salva=JSON.parse(sessionStorage.getItem(chave));
+    if(salva&&typeof salva.operacaoId==='string'&&typeof salva.conteudo==='string'){
+      const payload=JSON.parse(salva.conteudo);
+      const formatoValido=estado.tipo==='movimentacao'
+        ? payload&&Number.isInteger(payload.produto_id)&&typeof payload.tipo==='string'
+        : payload&&Array.isArray(payload.itens)&&payload.itens.length>0;
+      if(formatoValido){
+        Object.assign(estado,{incerta:true,operacaoId:salva.operacaoId,conteudo:salva.conteudo,payloadOriginal:payload});
+      }
+    }
+  } catch(erro){/* Armazenamento indisponível: conservar a proteção em memória. */}
+}
+
+function persistirOperacaoPendente(estado){
+  const chave=chaveOperacaoPendente(estado);
+  if(!chave) return;
+  try{
+    if(estado.incerta) sessionStorage.setItem(chave,JSON.stringify({operacaoId:estado.operacaoId,conteudo:estado.conteudo}));
+    else sessionStorage.removeItem(chave);
+  } catch(erro){/* Navegadores que bloqueiam armazenamento continuam usando memória. */}
+}
+
+function reabrirOperacaoPendente(estado,modalId){
+  recuperarOperacaoPendente(estado);
+  if(!estado.incerta) return false;
+  document.getElementById(modalId).classList.remove('hidden');
+  toast('Há uma tentativa anterior sem confirmação. Confirme novamente para recuperar o resultado antes de cadastrar outra operação.','var(--danger)');
+  return true;
+}
+
+function criarIdOperacao(){
+  if(globalThis.crypto.randomUUID) return crypto.randomUUID();
+  // randomUUID exige HTTPS em alguns navegadores; getRandomValues também
+  // funciona no HTTP usado pela aplicação na rede local.
+  const bytes=crypto.getRandomValues(new Uint8Array(16));
+  bytes[6]=(bytes[6]&15)|64;
+  bytes[8]=(bytes[8]&63)|128;
+  const hex=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
+
+function bloquearControlesModal(modalId){
+  const controles=Array.from(document.getElementById(modalId).querySelectorAll('button, input, select, textarea'));
+  const estados=controles.map(c=>c.disabled);
+  controles.forEach(c=>c.disabled=true);
+  return ()=>controles.forEach((c,i)=>c.disabled=estados[i]);
+}
+
+async function enviarOperacaoAtomica(estado,url,payload,modalId){
+  if(estado.enviando) return false;
+  recuperarOperacaoPendente(estado);
+  estado.enviando=true;
+  const desbloquear=bloquearControlesModal(modalId);
+  try{
+    const confirmandoAnterior=estado.incerta;
+    if(confirmandoAnterior){
+      payload=estado.payloadOriginal;
+      toast('Confirmando tentativa anterior; alterações atuais não foram enviadas.');
+    }
+    const conteudo=JSON.stringify(payload);
+    if(!estado.incerta&&estado.conteudo!==conteudo){
+      const operacaoId=criarIdOperacao();
+      estado.conteudo=conteudo;
+      estado.operacaoId=operacaoId;
+      estado.payloadOriginal=JSON.parse(conteudo);
+    }
+    // Persistir antes do envio também cobre recarregar a página com o POST em andamento.
+    estado.incerta=true;
+    persistirOperacaoPendente(estado);
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({...estado.payloadOriginal,operacao_id:estado.operacaoId})});
+    const d=await r.json();
+    if(!r.ok||d.erro||d.ok!==true){
+      // Autenticação e conflito não esclarecem se uma tentativa anterior foi gravada.
+      if([400,404,422].includes(r.status)||(r.status===409&&d.codigo==='integridade')) estado.incerta=false;
+      persistirOperacaoPendente(estado);
+      toast(d.erro||'Não foi possível salvar a operação. Tente novamente.','var(--danger)');
+      return false;
+    }
+    estado.incerta=false;
+    persistirOperacaoPendente(estado);
+    return {...d,tentativaAnterior:confirmandoAnterior};
+  } catch(erro){
+    toast('Não foi possível confirmar a operação. Verifique a conexão e tente novamente; a tentativa anterior será confirmada antes de enviar alterações.','var(--danger)');
+    return false;
+  } finally{
+    estado.enviando=false;
+    desbloquear();
+  }
+}
+
 async function carregarMovimentacoes(){
   const movs=await fetch('/api/movimentacoes').then(r=>r.json());
   if(!produtos.length) produtos=await fetch('/api/produtos').then(r=>r.json());
@@ -27,6 +135,7 @@ document.querySelectorAll('.tipo-tab').forEach(btn=>{
   });
 });
 let movCatFiltro=null;
+let movEstado=criarEstadoLote('movimentacao');
 
 function construirMovCatChips(){
   const el=document.getElementById('mov-cat-chips');
@@ -120,7 +229,10 @@ function toggleCampoValidadeMov(){
   else { wrap.classList.add('hidden'); document.getElementById('mov-validade').value=''; }
 }
 async function abrirModalMov(){
+  if(movEstado.enviando) return;
+  if(reabrirOperacaoPendente(movEstado,'modal-mov')) return;
   if(!produtos.length) produtos=await fetch('/api/produtos').then(r=>r.json());
+  movEstado=criarEstadoLote('movimentacao');
   limparMovSel();
   movCatFiltro=null;
   document.getElementById('mov-qtd').value=1;
@@ -158,23 +270,37 @@ function movProcessarScan(){
 }
 
 async function salvarMov(){
-  if(!movProdId){toast('Selecione um produto','var(--danger)');return;}
-  let qtd=+document.getElementById('mov-qtd').value;
-  // Se estiver em modo embalagem (fardo/caixa), converte para unidades
-  const p=produtos.find(x=>x.id===movProdId);
-  if(movModoEmbalagem && p && p.unid_por_fardo){
-    qtd=Math.round(qtd*p.unid_por_fardo*1000)/1000;
+  if(movEstado.enviando) return;
+  recuperarOperacaoPendente(movEstado);
+  let body;
+  if(movEstado.incerta){
+    body=movEstado.payloadOriginal;
+  } else {
+    if(!movProdId){toast('Selecione um produto','var(--danger)');return;}
+    let qtd=+document.getElementById('mov-qtd').value;
+    // Se estiver em modo embalagem (fardo/caixa), converte para unidades
+    const p=produtos.find(x=>x.id===movProdId);
+    if(movModoEmbalagem && p && p.unid_por_fardo){
+      qtd=Math.round(qtd*p.unid_por_fardo*1000)/1000;
+    }
+    const tipo=document.getElementById('mov-tipo').value;
+    if(!Number.isFinite(qtd)||qtd<0||(tipo!=='ajuste'&&qtd===0)){
+      toast('Informe uma quantidade válida','var(--danger)');return;
+    }
+    body={produto_id:movProdId,tipo,
+      quantidade:qtd,observacao:document.getElementById('mov-obs').value,
+      validade:document.getElementById('mov-validade').value||null};
   }
-  const body={produto_id:movProdId,tipo:document.getElementById('mov-tipo').value,
-    quantidade:qtd,observacao:document.getElementById('mov-obs').value,
-    validade:document.getElementById('mov-validade').value||null};
-  const res=await fetch('/api/movimentacoes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const d=await res.json();
-  if(d.erro){toast(d.erro,'var(--danger)');return;}
-  toast(`Novo estoque: ${d.novo_estoque}`);
+  const d=await enviarOperacaoAtomica(movEstado,'/api/movimentacoes',body,'modal-mov');
+  if(!d) return;
+  toast(d.tentativaAnterior?'Movimentação anterior confirmada. Alterações atuais não foram enviadas.':`Novo estoque: ${d.novo_estoque}`);
   fecharModal('modal-mov');
-  produtos=await fetch('/api/produtos').then(r=>r.json());
-  carregarMovimentacoes();
+  try{
+    produtos=await fetch('/api/produtos').then(r=>{if(!r.ok) throw new Error();return r.json();});
+    await carregarMovimentacoes();
+  } catch(erro){
+    toast('Movimentação registrada. Recarregue a página para atualizar o estoque.','var(--danger)');
+  }
 }
 
 // ═══════════════════════════════════════
@@ -182,9 +308,13 @@ async function salvarMov(){
 // ═══════════════════════════════════════
 let loteItens=[]; // [{produto_id, nome, codigo, unidade, quantidade, qtdEstoque}]
 let loteCatFiltro=null;
+let saidaLoteEstado=criarEstadoLote('saida-lote');
 
 async function abrirModalLote(){
+  if(saidaLoteEstado.enviando) return;
+  if(reabrirOperacaoPendente(saidaLoteEstado,'modal-lote')) return;
   if(!produtos.length) produtos=await fetch('/api/produtos').then(r=>r.json());
+  saidaLoteEstado=criarEstadoLote('saida-lote');
   loteItens=[];
   loteCatFiltro=null;
   document.getElementById('lote-busca').value='';
@@ -304,38 +434,39 @@ function renderLoteItens(){
 }
 
 async function confirmarSaidaLote(){
-  if(!loteItens.length){toast('Adicione pelo menos um produto','var(--danger)');return;}
+  if(saidaLoteEstado.enviando) return;
+  recuperarOperacaoPendente(saidaLoteEstado);
+  const itens=saidaLoteEstado.incerta?saidaLoteEstado.payloadOriginal.itens:[];
+  if(!saidaLoteEstado.incerta){
+    if(!loteItens.length){toast('Adicione pelo menos um produto','var(--danger)');return;}
 
-  // Validação prévia de estoque suficiente (converte fardos para unidades antes)
-  for(const item of loteItens){
-    const qtdReal=item.modoEmbalagem&&item.unid_por_fardo
-      ? item.quantidade*item.unid_por_fardo
-      : item.quantidade;
-    if(qtdReal>item.qtdEstoque){
-      toast(`Estoque insuficiente: ${item.nome} (tem ${item.qtdEstoque}, pediu ${qtdReal})`,'var(--danger)');
-      return;
+    // Validação prévia de estoque suficiente (converte fardos para unidades antes)
+    for(const item of loteItens){
+      const qtdReal=item.modoEmbalagem&&item.unid_por_fardo
+        ? Math.round(item.quantidade*item.unid_por_fardo*1000)/1000
+        : item.quantidade;
+      if(!Number.isFinite(qtdReal)||qtdReal<=0){
+        toast(`Informe uma quantidade válida para ${item.nome}`,'var(--danger)');
+        return;
+      }
+      if(qtdReal>item.qtdEstoque){
+        toast(`Estoque insuficiente: ${item.nome} (tem ${item.qtdEstoque}, pediu ${qtdReal})`,'var(--danger)');
+        return;
+      }
+      itens.push({produto_id:item.produto_id,tipo:'saida',quantidade:qtdReal,observacao:'Saída em lote'});
     }
   }
 
-  let sucesso=0, erros=[];
-  for(const item of loteItens){
-    const qtdReal=item.modoEmbalagem&&item.unid_por_fardo
-      ? Math.round(item.quantidade*item.unid_por_fardo*1000)/1000
-      : item.quantidade;
-    const res=await fetch('/api/movimentacoes',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({produto_id:item.produto_id, tipo:'saida', quantidade:qtdReal,
-        observacao:'Saída em lote'})});
-    const d=await res.json();
-    if(d.erro) erros.push(`${item.nome}: ${d.erro}`);
-    else sucesso++;
-  }
-
-  if(erros.length) toast(`${sucesso} ok, ${erros.length} com erro: ${erros[0]}`,'var(--danger)');
-  else toast(`Saída de ${sucesso} produto${sucesso>1?'s':''} registrada com sucesso!`);
-
+  const d=await enviarOperacaoAtomica(saidaLoteEstado,'/api/movimentacoes/lote',{itens},'modal-lote');
+  if(!d) return;
+  toast(d.tentativaAnterior?'Saída anterior confirmada. Alterações atuais não foram enviadas.':`Saída de ${itens.length} produto${itens.length>1?'s':''} registrada com sucesso!`);
   fecharModal('modal-lote');
-  produtos=await fetch('/api/produtos').then(r=>r.json());
-  carregarMovimentacoes();
+  try{
+    produtos=await fetch('/api/produtos').then(r=>{if(!r.ok) throw new Error();return r.json();});
+    await carregarMovimentacoes();
+  } catch(erro){
+    toast('Saída registrada. Recarregue a página para atualizar o estoque.','var(--danger)');
+  }
 }
 
 function imprimirListaLote(){

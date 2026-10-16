@@ -40,10 +40,16 @@ class RegressionTests(unittest.TestCase):
         self.assertTrue(response.json['ok'])
 
     def test_legacy_routes_and_responses_for_all_roles(self):
-        baseline = json.loads((Path(__file__).parent / 'fixtures/legacy_http.json').read_text())
-        routes = sorted((r.rule, r.endpoint, sorted(r.methods)) for r in self.app.url_map.iter_rules())
+        baseline = json.loads((Path(__file__).parent / 'fixtures/legacy_http.json').read_text(encoding='utf-8'))
+        added_routes = {'/api/movimentacoes/lote', '/api/fin/contas-pagar/lote'}
+        routes = sorted((r.rule, r.endpoint, sorted(r.methods)) for r in self.app.url_map.iter_rules()
+                        if r.rule not in added_routes)
         self.assertEqual(json.loads(json.dumps(routes)), baseline['routes'])
         for role in (None, 'admin', 'caixa', 'estoquista'):
+            # Permissions now come from the current user record, not stale cookies.
+            if role:
+                with sqlite3.connect(self.app.config['DATABASE']) as db:
+                    db.execute('UPDATE usuarios SET perfil=? WHERE id=1', (role,))
             with self.client.session_transaction() as session:
                 session.clear()
                 if role:
@@ -58,7 +64,15 @@ class RegressionTests(unittest.TestCase):
                     response = self.client.get(url)
                     actual = {'status': response.status_code, 'json': response.get_json(),
                               'location': response.headers.get('Location')}
-                    self.assertEqual(normalize(actual), baseline['responses'][f'{role}:{rule.rule}'])
+                    expected = baseline['responses'][f'{role}:{rule.rule}']
+                    if role == 'admin' and rule.rule == '/api/status-backup':
+                        # Physical file size changes when the schema grows; validate
+                        # a positive reported size instead of the old page count.
+                        self.assertGreater(actual['json']['tamanho_banco_kb'], 0)
+                        actual['json'].pop('tamanho_banco_kb')
+                        expected = {**expected, 'json': {k: v for k, v in expected['json'].items()
+                                                        if k != 'tamanho_banco_kb'}}
+                    self.assertEqual(normalize(actual), expected)
 
     def test_login_pages_assets_and_logout(self):
         response = self.client.get('/login')

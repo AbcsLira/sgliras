@@ -1,5 +1,6 @@
 // ── Contas a Pagar ────────────────────────────────────────────────────────────
 let finFiltroStatusPagar='todos';
+let finPagarEstado=criarEstadoLote('contas-pagar');
 
 async function finCarregarContasPagar(){
   if(!finCatsPagar.length) finCatsPagar=await fetch('/api/fin/categorias-pagar').then(r=>r.json());
@@ -235,8 +236,11 @@ async function finExcluirCategoria(id,nome){
 }
 
 async function finAbrirModalPagar(){
+  if(finPagarEstado.enviando) return;
+  if(reabrirOperacaoPendente(finPagarEstado,'modal-fin-pagar')) return;
   if(!finCatsPagar.length) finCatsPagar=await fetch('/api/fin/categorias-pagar').then(r=>r.json());
   if(!finFornecedores.length) finFornecedores=await fetch('/api/fornecedores').then(r=>r.json());
+  finPagarEstado=criarEstadoLote('contas-pagar');
   document.getElementById('fin-pagar-cat').innerHTML=finCatsPagar.map(c=>`<option>${c.nome}</option>`).join('');
   document.getElementById('fin-pagar-forn').innerHTML=`<option value="">— nenhum —</option>`
     +finFornecedores.map(f=>`<option value="${f.id}">${f.nome}</option>`).join('');
@@ -305,52 +309,51 @@ function finAtualizarParcelas(){
 }
 
 async function finSalvarContaPagar(){
-  const desc=document.getElementById('fin-pagar-desc').value.trim();
-  const valorTotal=parseFloat(document.getElementById('fin-pagar-valor').value);
-  const venc=document.getElementById('fin-pagar-venc').value;
-  const n=parseInt(document.getElementById('fin-pagar-parcelas').value)||1;
-  if(!desc||!valorTotal){toast('Preencha descrição e valor','var(--danger)');return;}
+  if(finPagarEstado.enviando) return;
+  recuperarOperacaoPendente(finPagarEstado);
+  const itens=finPagarEstado.incerta?finPagarEstado.payloadOriginal.itens:[];
+  if(!finPagarEstado.incerta){
+    const desc=document.getElementById('fin-pagar-desc').value.trim();
+    const valorTotal=parseFloat(document.getElementById('fin-pagar-valor').value);
+    const venc=document.getElementById('fin-pagar-venc').value;
+    const n=Number(document.getElementById('fin-pagar-parcelas').value||1);
+    if(!desc||!Number.isFinite(valorTotal)||valorTotal<=0){toast('Preencha descrição e valor positivo','var(--danger)');return;}
+    if(!Number.isInteger(n)||n<1){toast('Informe uma quantidade válida de parcelas','var(--danger)');return;}
 
-  const cat=document.getElementById('fin-pagar-cat').value;
-  const forn=document.getElementById('fin-pagar-forn').value||null;
-  const obs=document.getElementById('fin-pagar-obs').value;
+    const cat=document.getElementById('fin-pagar-cat').value;
+    const forn=document.getElementById('fin-pagar-forn').value||null;
+    const obs=document.getElementById('fin-pagar-obs').value;
 
-  if(n<=1){
-    // Conta simples — comportamento original
-    if(!venc){toast('Preencha o vencimento','var(--danger)');return;}
-    const r=await fetch('/api/fin/contas-pagar',{method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({descricao:desc,valor:valorTotal,vencimento:venc,
-        categoria:cat,fornecedor_id:forn,observacao:obs})});
-    const d=await r.json();
-    if(d.erro){toast(d.erro,'var(--danger)');return;}
-    toast('Conta a pagar salva!');
-  } else {
-    // Parcelado — criar n contas
-    let erros=[], sucesso=0;
-    for(let i=0;i<n;i++){
-      const valorParc=parseFloat(document.getElementById(`fin-parc-val-${i}`).value);
-      const vencParc=document.getElementById(`fin-parc-venc-${i}`).value;
-      if(!vencParc||!valorParc){
-        toast(`Preencha valor e vencimento da parcela ${i+1}/${n}`,'var(--danger)');
-        return;
-      }
-      const descParc=`${desc} ${i+1}/${n}`;
-      const r=await fetch('/api/fin/contas-pagar',{method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({descricao:descParc,valor:valorParc,vencimento:vencParc,
+    if(n===1){
+      if(!venc){toast('Preencha o vencimento','var(--danger)');return;}
+      itens.push({descricao:desc,valor:valorTotal,vencimento:venc,
+        categoria:cat,fornecedor_id:forn,observacao:obs});
+    } else {
+      // Validar todas as parcelas antes de enviar a operação única ao servidor.
+      for(let i=0;i<n;i++){
+        const valorParc=parseFloat(document.getElementById(`fin-parc-val-${i}`)?.value);
+        const vencParc=document.getElementById(`fin-parc-venc-${i}`)?.value;
+        if(!vencParc||!Number.isFinite(valorParc)||valorParc<=0){
+          toast(`Preencha valor e vencimento da parcela ${i+1}/${n}`,'var(--danger)');
+          return;
+        }
+        const descParc=`${desc} ${i+1}/${n}`;
+        itens.push({descricao:descParc,valor:valorParc,vencimento:vencParc,
           categoria:cat,fornecedor_id:forn,
-          observacao:obs?`${obs} — parcela ${i+1}/${n}`:`Parcela ${i+1}/${n}`})});
-      const d=await r.json();
-      if(d.erro) erros.push(d.erro);
-      else sucesso++;
+          observacao:obs?`${obs} — parcela ${i+1}/${n}`:`Parcela ${i+1}/${n}`});
+      }
     }
-    if(erros.length) toast(`${sucesso} parcelas ok, ${erros.length} com erro`,'var(--danger)');
-    else toast(`${n} parcelas criadas com sucesso! 💳`);
   }
 
+  const d=await enviarOperacaoAtomica(finPagarEstado,'/api/fin/contas-pagar/lote',{itens},'modal-fin-pagar');
+  if(!d) return;
+  toast(d.tentativaAnterior?'Conta anterior confirmada. Alterações atuais não foram enviadas.':itens.length===1?'Conta a pagar salva!':`${itens.length} parcelas criadas com sucesso! 💳`);
   fecharModal('modal-fin-pagar');
-  finCarregarContasPagar();
+  try{
+    await finCarregarContasPagar();
+  } catch(erro){
+    toast('Conta salva. Recarregue a página para atualizar a lista.','var(--danger)');
+  }
 }
 
 async function finPagarConta(id){

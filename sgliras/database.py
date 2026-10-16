@@ -1,15 +1,29 @@
 """Inicialização, migrações e conexões SQLite."""
 import sqlite3
 from datetime import datetime
-from flask import current_app
+from flask import current_app, g
 from .security import hash_senha
 
 def init_db():
     conn = sqlite3.connect(current_app.config["DATABASE"])
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.commit()
+    try:
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA foreign_keys = ON")
+        _initialize_db(conn)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _initialize_db(conn):
     c = conn.cursor()
+    # executescript encerra uma transação já aberta. O BEGIN dentro do script
+    # mantém criação, migrações e dados iniciais na mesma transação.
     c.executescript("""
+        BEGIN IMMEDIATE;
         CREATE TABLE IF NOT EXISTS usuarios (
             id        INTEGER PRIMARY KEY AUTOINCREMENT,
             nome      TEXT NOT NULL,
@@ -246,34 +260,39 @@ def init_db():
             diferenca           REAL,
             observacao          TEXT
         );
+        CREATE TABLE IF NOT EXISTS operacoes_idempotentes (
+            operacao_id TEXT PRIMARY KEY,
+            usuario_id  INTEGER NOT NULL,
+            rota        TEXT NOT NULL,
+            payload_hash TEXT NOT NULL,
+            resposta    TEXT NOT NULL,
+            criado_em   TEXT NOT NULL
+        );
         INSERT OR IGNORE INTO categorias (nome) VALUES
             ('Alimentos'),('Bebidas'),('Limpeza'),('Embalagens'),('Outros'),('Molhos'),('Oficina'),('Gelatos');
     """)
-    # Remove categoria duplicada 'Oficinas' se existir
-    try:
-        c.execute("DELETE FROM categorias WHERE nome='Oficinas'")
-        conn.commit()
-    except: pass
-    # Migrações seguras para bancos existentes
-    for sql in [
-        "ALTER TABLE produtos ADD COLUMN unidade TEXT NOT NULL DEFAULT 'un'",
-        "ALTER TABLE produtos ADD COLUMN sub_qtd_por_un REAL",
-        "ALTER TABLE produtos ADD COLUMN sub_unidade TEXT",
-        "ALTER TABLE movimentacoes ADD COLUMN usuario_id INTEGER REFERENCES usuarios(id)",
-        "ALTER TABLE produtos ADD COLUMN unid_por_fardo REAL",
-        "ALTER TABLE produtos ADD COLUMN unid_fardo_label TEXT DEFAULT 'fd'",
-        "ALTER TABLE produtos ADD COLUMN validade TEXT",
-        "ALTER TABLE fin_fechamento_diario ADD COLUMN preco_pao REAL NOT NULL DEFAULT 0",
-        "ALTER TABLE produtos ADD COLUMN preco_embalagem REAL",
-        "ALTER TABLE produtos ADD COLUMN tipo_embalagem TEXT",
-        "ALTER TABLE produtos ADD COLUMN unid_embalagem INTEGER",
-        "ALTER TABLE fin_massa_entregas ADD COLUMN conta_pagar_id INTEGER REFERENCES fin_contas_pagar(id)",
-        "ALTER TABLE fin_paes_pagamento ADD COLUMN conta_pagar_id INTEGER REFERENCES fin_contas_pagar(id)",
-        "ALTER TABLE produtos ADD COLUMN ativo INTEGER NOT NULL DEFAULT 1",
-        "ALTER TABLE produtos ADD COLUMN codigo_barras TEXT",
+    # Preserva categorias existentes, inclusive 'Oficinas', que pode estar em
+    # uso por produtos. Migrações só ignoram colunas comprovadamente existentes.
+    for table, column, definition in [
+        ("produtos", "unidade", "TEXT NOT NULL DEFAULT 'un'"),
+        ("produtos", "sub_qtd_por_un", "REAL"),
+        ("produtos", "sub_unidade", "TEXT"),
+        ("movimentacoes", "usuario_id", "INTEGER REFERENCES usuarios(id)"),
+        ("produtos", "unid_por_fardo", "REAL"),
+        ("produtos", "unid_fardo_label", "TEXT DEFAULT 'fd'"),
+        ("produtos", "validade", "TEXT"),
+        ("fin_fechamento_diario", "preco_pao", "REAL NOT NULL DEFAULT 0"),
+        ("produtos", "preco_embalagem", "REAL"),
+        ("produtos", "tipo_embalagem", "TEXT"),
+        ("produtos", "unid_embalagem", "INTEGER"),
+        ("fin_massa_entregas", "conta_pagar_id", "INTEGER REFERENCES fin_contas_pagar(id)"),
+        ("fin_paes_pagamento", "conta_pagar_id", "INTEGER REFERENCES fin_contas_pagar(id)"),
+        ("produtos", "ativo", "INTEGER NOT NULL DEFAULT 1"),
+        ("produtos", "codigo_barras", "TEXT"),
     ]:
-        try: c.execute(sql); conn.commit()
-        except: pass
+        columns = {row[1].casefold() for row in c.execute(f"PRAGMA table_info({table})")}
+        if column.casefold() not in columns:
+            c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
     admin = c.execute("SELECT id FROM usuarios WHERE usuario='admin'").fetchone()
     if not admin:
         c.execute("INSERT INTO usuarios (nome,usuario,senha,perfil,ativo,criado_em) VALUES (?,?,?,?,?,?)",
@@ -284,11 +303,25 @@ def init_db():
         for cat in cats_padrao:
             c.execute("INSERT OR IGNORE INTO fin_categorias_pagar (nome,criado_em) VALUES (?,?)",
                       (cat, datetime.now().isoformat()))
-    conn.commit(); conn.close()
 
 def get_db():
     conn = sqlite3.connect(current_app.config["DATABASE"], timeout=10)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA journal_mode = WAL")
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode = WAL")
+    except Exception:
+        conn.close()
+        raise
+    g.setdefault("_database_connections", []).append(conn)
     return conn
+
+
+def close_connections(error=None):
+    """Fecha também conexões esquecidas por rotas que falharam no meio.
+
+    Mantém o contrato de get_db: cada chamada abre uma conexão independente e
+    as rotas continuam podendo fechá-la explicitamente antes do fim do request.
+    """
+    for conn in g.pop("_database_connections", []):
+        conn.close()

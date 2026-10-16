@@ -19,17 +19,43 @@ def verificar_senha(hash_armazenado, senha_fornecida):
     """Verifica a senha contra o hash salvo. Suporta tanto o formato novo
     (werkzeug, com salt) quanto o formato antigo (SHA-256 puro, sem salt),
     para não travar o acesso de usuários criados antes da migração."""
+    if not isinstance(hash_armazenado, str) or not isinstance(senha_fornecida, str):
+        return False
     if hash_armazenado.startswith(("pbkdf2:", "scrypt:")):
-        return check_password_hash(hash_armazenado, senha_fornecida)
+        try:
+            return check_password_hash(hash_armazenado, senha_fornecida)
+        except (ValueError, TypeError):
+            return False
     # Hash no formato legado (sha256 hex puro, sem salt)
     return hash_armazenado == _hash_legado_sha256(senha_fornecida)
 
 def login_requerido(f):
     @wraps(f)
     def dec(*a,**kw):
-        if "usuario_id" not in session:
-            if request.path.startswith("/api/"): return jsonify({"erro":"Não autenticado"}),401
+        # A sessão identifica o usuário, mas seu perfil e situação atuais vêm
+        # sempre do banco: uma alteração administrativa vale no próximo acesso.
+        from .database import get_db
+
+        usuario_id = session.get("usuario_id")
+        usuario = None
+        if isinstance(usuario_id, int) and not isinstance(usuario_id, bool) and usuario_id > 0:
+            db = get_db()
+            try:
+                usuario = db.execute(
+                    "SELECT id,nome,usuario,perfil,ativo FROM usuarios WHERE id=?",
+                    (usuario_id,),
+                ).fetchone()
+            finally:
+                db.close()
+        if usuario is None or usuario["ativo"] != 1 or usuario["perfil"] not in PERFIS:
+            session.clear()
+            if request.path.startswith("/api/"):
+                return jsonify({"erro":"Não autenticado"}),401
             return redirect(url_for("login_page"))
+        session.update({
+            "usuario_id": usuario["id"], "usuario": usuario["usuario"],
+            "nome": usuario["nome"], "perfil": usuario["perfil"],
+        })
         return f(*a,**kw)
     return dec
 

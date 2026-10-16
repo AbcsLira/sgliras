@@ -51,6 +51,8 @@ python -m venv venv
 # Windows: venv\Scripts\activate
 python -m pip install -r requirements.txt
 python -m unittest discover -s tests -v
+# Opcional para rodar o sistema, necessário para verificar os testes da interface:
+node tests/frontend_stability.cjs
 python app.py
 ```
 
@@ -63,3 +65,47 @@ backup íntegro, reinicialização do schema e isolamento entre aplicações.
 
 O banco `estoque.db`, seus arquivos WAL/SHM, `config.ini` e `backups/` permanecem
 na raiz e são ignorados pelo Git. Não apague WAL/SHM manualmente.
+
+## Garantias de gravação e validação
+
+`sgliras/validation.py` valida objetos JSON, textos, números finitos e datas.
+Produtos, movimentações, contagens, usuários, contas a pagar/receber e os fluxos
+de pães e massas validam os dados antes de gravar. Falhas de integridade retornam conflito e
+o log do servidor registra a causa; banco temporariamente ocupado retorna 503.
+
+`sgliras/operations.py` executa lotes de estoque e contas a pagar dentro de uma
+transação `BEGIN IMMEDIATE`. O cliente envia `operacao_id`; a chave, o usuário,
+a rota, o conteúdo e a resposta ficam em `operacoes_idempotentes`, na mesma
+transação dos dados. Repetir a mesma operação retorna a resposta salva, sem
+aplicar os itens novamente. Reusar a chave com conteúdo diferente retorna 409.
+Não exclua essas chaves para tentar reenviar um lote; uma gravação nova deve
+ter um novo identificador. Os endpoints individuais antigos são preservados.
+
+Os formulários bloqueiam envios concorrentes. Se a resposta se perder, a
+tentativa original fica pendente e é reenviada com a mesma chave antes de
+enviar dados editados. A tela informa essa confirmação; os dados novos não
+são enviados junto. A pendência é conservada na sessão da aba por usuário e
+tipo de formulário, inclusive após atualizar a página. Se o navegador bloquear
+o armazenamento, essa proteção permanece em memória até sair da página.
+
+O backend reconsulta o usuário a cada requisição autenticada. Desativar ou
+remover um usuário invalida a sessão no próximo acesso; mudar seu perfil vale
+imediatamente nas permissões. O último administrador ativo é protegido contra
+remoção, desativação e mudança de perfil.
+
+Pagamentos repetidos ou sobrepostos de pães retornam 409. O estorno reabre as
+contas preservando seus valores. Entregas de massas e contas vinculadas são
+atualizadas juntas; entregas já pagas não podem ser editadas ou excluídas.
+Use os módulos de origem para editar ou excluir contas vinculadas.
+
+As migrações são transacionais e só acrescentam colunas ausentes. Falhas
+inesperadas interrompem a inicialização e desfazem a migração; consulte o erro
+e preserve o banco para diagnóstico. Conexões esquecidas são fechadas ao fim
+do contexto Flask, desfazendo gravações não confirmadas.
+
+Os testes de estabilidade exercitam validação, repetição, concorrência e
+rollback usando bancos temporários. Os testes Node executam os scripts reais
+com DOM e rede simulados, sem dependências adicionais. O workflow
+`.github/workflows/tests.yml` configura a execução de ambos em Linux e Windows.
+Isso não substitui testar impressão e interação visual no navegador utilizado
+na operação.

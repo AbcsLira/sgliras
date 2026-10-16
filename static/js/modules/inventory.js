@@ -4,6 +4,8 @@
 let invAtual = null;       // inventário aberto atual
 let invItens = [];         // itens do inventário aberto
 let invCatFiltro = null;
+let invSalvando = false;
+let invFinalizando = false;
 
 async function abrirInventario(){
   if(!categorias.length) categorias = await fetch('/api/categorias').then(r=>r.json());
@@ -161,17 +163,27 @@ function renderInventario(){
 }
 
 async function invSalvarParcial(){
-  if(!invAtual) return;
+  if(!invAtual) return false;
+  if(invSalvando){toast('Aguarde o salvamento das contagens.','var(--danger)');return false;}
+  invSalvando=true;
   const itens = invItens.map(i=>({
     produto_id:i.produto_id,
     quantidade_contada:i.quantidade_contada,
     observacao:i.observacao||''
   }));
-  const r = await fetch(`/api/inventarios/${invAtual.id}/itens`,{method:'PUT',
-    headers:{'Content-Type':'application/json'}, body:JSON.stringify({itens})});
-  const d = await r.json();
-  if(d.erro){toast(d.erro,'var(--danger)');return;}
-  toast('Progresso salvo! 💾');
+  try{
+    const r = await fetch(`/api/inventarios/${invAtual.id}/itens`,{method:'PUT',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({itens})});
+    const d = await r.json();
+    if(!r.ok||d.erro||d.ok!==true){toast(d.erro||'Não foi possível salvar as contagens.','var(--danger)');return false;}
+    toast('Progresso salvo! 💾');
+    return true;
+  } catch(erro){
+    toast('Não foi possível salvar as contagens. Verifique a conexão e tente novamente.','var(--danger)');
+    return false;
+  } finally{
+    invSalvando=false;
+  }
 }
 
 async function invFinalizar(){
@@ -208,24 +220,39 @@ async function invFinalizar(){
 }
 
 async function invConfirmarFinalizar(){
-  // Salvar contagens antes de finalizar
-  await invSalvarParcial();
-  const r = await fetch(`/api/inventarios/${invAtual.id}/finalizar`,{method:'POST',headers:{'Content-Type':'application/json'}});
-  const d = await r.json();
-  if(d.erro){toast(d.erro,'var(--danger)');return;}
-  fecharModal('modal-inv-finalizar');
-  toast(`Inventário finalizado! ${d.ajustados} produto(s) ajustado(s).`);
-  // Verificar produtos abaixo do mínimo
-  if(d.abaixo_minimo && d.abaixo_minimo.length){
-    const nomes = d.abaixo_minimo.slice(0,3).map(p=>p.nome).join(', ');
-    const mais = d.abaixo_minimo.length>3?` e mais ${d.abaixo_minimo.length-3}`:'';
-    if(confirm(`${d.abaixo_minimo.length} produto(s) ficaram abaixo do mínimo após o inventário:\n${nomes}${mais}\n\nDeseja ir para a Lista de Compras?`)){
-      navegarPara('lista-compras');
-      return;
+  if(invFinalizando||!invAtual) return;
+  invFinalizando=true;
+  const invId=invAtual.id;
+  const desbloquear=bloquearControlesModal('modal-inv-finalizar');
+  try{
+    // Finalizar apenas quando o servidor confirmar o salvamento das contagens.
+    if(!await invSalvarParcial()||invAtual?.id!==invId) return;
+    const r = await fetch(`/api/inventarios/${invId}/finalizar`,{method:'POST',headers:{'Content-Type':'application/json'}});
+    const d = await r.json();
+    if(!r.ok||d.erro||d.ok!==true){toast(d.erro||'Não foi possível finalizar o inventário.','var(--danger)');return;}
+    fecharModal('modal-inv-finalizar');
+    toast(`Inventário finalizado! ${d.ajustados} produto(s) ajustado(s).`);
+    // Verificar produtos abaixo do mínimo
+    if(d.abaixo_minimo && d.abaixo_minimo.length){
+      const nomes = d.abaixo_minimo.slice(0,3).map(p=>p.nome).join(', ');
+      const mais = d.abaixo_minimo.length>3?` e mais ${d.abaixo_minimo.length-3}`:'';
+      if(confirm(`${d.abaixo_minimo.length} produto(s) ficaram abaixo do mínimo após o inventário:\n${nomes}${mais}\n\nDeseja ir para a Lista de Compras?`)){
+        navegarPara('lista-compras');
+        return;
+      }
     }
+    try{
+      produtos = await fetch('/api/produtos').then(r=>{if(!r.ok) throw new Error();return r.json();});
+      await invCarregarEstado();
+    } catch(erro){
+      toast('Inventário finalizado. Recarregue a página para atualizar o estoque.','var(--danger)');
+    }
+  } catch(erro){
+    toast('Não foi possível confirmar a finalização. Verifique a conexão e tente novamente.','var(--danger)');
+  } finally{
+    invFinalizando=false;
+    desbloquear();
   }
-  produtos = await fetch('/api/produtos').then(r=>r.json());
-  await invCarregarEstado();
 }
 
 async function invCancelar(){

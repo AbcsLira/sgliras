@@ -11,17 +11,21 @@ def login_page():
 def index(): return render_template("index.html")
 
 def api_login():
-    d=request.get_json(silent=True) or {}; db=get_db()
-    u=db.execute("SELECT * FROM usuarios WHERE usuario=? AND ativo=1",(d.get("usuario",""),)).fetchone()
-    if not u or not verificar_senha(u["senha"], d.get("senha","")):
+    d = request.get_json(silent=True)
+    session.clear()
+    if not isinstance(d, dict) or not all(isinstance(d.get(k), str) for k in ("usuario", "senha")):
+        return jsonify({"erro":"Informe usuário e senha"}),400
+    db = get_db()
+    try:
+        u = db.execute("SELECT * FROM usuarios WHERE usuario=? AND ativo=1", (d["usuario"],)).fetchone()
+        if not u or u["perfil"] not in PERFIS or not verificar_senha(u["senha"], d["senha"]):
+            return jsonify({"erro":"Usuário ou senha inválidos"}),401
+        # Atualiza hashes antigos somente após autenticação válida.
+        if not u["senha"].startswith(("pbkdf2:", "scrypt:")):
+            db.execute("UPDATE usuarios SET senha=? WHERE id=?", (hash_senha(d["senha"]), u["id"]))
+            db.commit()
+    finally:
         db.close()
-        return jsonify({"erro":"Usuário ou senha inválidos"}),401
-    # Migração preguiçosa: se a senha ainda está no formato antigo (sem salt),
-    # já reescreve para o formato seguro agora que sabemos que a senha está correta.
-    if not u["senha"].startswith(("pbkdf2:", "scrypt:")):
-        db.execute("UPDATE usuarios SET senha=? WHERE id=?", (hash_senha(d.get("senha","")), u["id"]))
-        db.commit()
-    db.close()
     session.update({"usuario_id":u["id"],"usuario":u["usuario"],"nome":u["nome"],"perfil":u["perfil"]})
     perms=PERFIS.get(u["perfil"],{}).get("permissoes",[])
     return jsonify({"ok":True,"nome":u["nome"],"perfil":u["perfil"],"perfil_label":PERFIS[u["perfil"]]["label"],"permissoes":perms})
@@ -36,11 +40,22 @@ def api_me():
 
 @login_requerido
 def alterar_senha():
-    d=request.get_json(silent=True) or {}; db=get_db()
-    u=db.execute("SELECT senha FROM usuarios WHERE id=?",(session["usuario_id"],)).fetchone()
-    if not verificar_senha(u["senha"], d.get("senha_atual","")): db.close(); return jsonify({"erro":"Senha atual incorreta"}),400
-    db.execute("UPDATE usuarios SET senha=? WHERE id=?",(hash_senha(d["senha_nova"]),session["usuario_id"]))
-    db.commit(); db.close(); return jsonify({"ok":True})
+    d = request.get_json(silent=True)
+    if not isinstance(d, dict) or not all(isinstance(d.get(k), str) for k in ("senha_atual", "senha_nova")) or not d["senha_nova"]:
+        return jsonify({"erro":"Informe a senha atual e a nova senha"}),400
+    db = get_db()
+    try:
+        u = db.execute("SELECT senha FROM usuarios WHERE id=?", (session["usuario_id"],)).fetchone()
+        if not u:
+            session.clear()
+            return jsonify({"erro":"Não autenticado"}),401
+        if not verificar_senha(u["senha"], d["senha_atual"]):
+            return jsonify({"erro":"Senha atual incorreta"}),400
+        db.execute("UPDATE usuarios SET senha=? WHERE id=?", (hash_senha(d["senha_nova"]), session["usuario_id"]))
+        db.commit()
+        return jsonify({"ok":True})
+    finally:
+        db.close()
 
 
 def register_routes(app):
