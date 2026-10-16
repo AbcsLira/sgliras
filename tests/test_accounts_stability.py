@@ -1,4 +1,5 @@
 """Contas financeiras: validação, parcelas atômicas e vínculos preservados."""
+from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import sqlite3
@@ -36,7 +37,7 @@ class AccountsStabilityTests(unittest.TestCase):
                 "vencimento": "2026-10-01", **changes}
 
     def rows(self, table="fin_contas_pagar"):
-        with sqlite3.connect(self.database) as db:
+        with closing(sqlite3.connect(self.database)) as db, db:
             db.row_factory = sqlite3.Row
             return [dict(row) for row in db.execute(f"SELECT * FROM {table} ORDER BY id")]
 
@@ -62,7 +63,7 @@ class AccountsStabilityTests(unittest.TestCase):
         self.assertEqual(self.rows("fin_contas_receber"), [])
 
     def test_supplier_and_valid_receivable(self):
-        with sqlite3.connect(self.database) as db:
+        with closing(sqlite3.connect(self.database)) as db, db:
             supplier_id = db.execute(
                 "INSERT INTO fornecedores (nome,criado_em) VALUES ('Fornecedor teste','agora')"
             ).lastrowid
@@ -164,7 +165,7 @@ class AccountsStabilityTests(unittest.TestCase):
     def linked_delivery(self):
         self.client.post("/api/fin/contas-pagar", json=self.account())
         account_id = self.rows()[0]["id"]
-        with sqlite3.connect(self.database) as db:
+        with closing(sqlite3.connect(self.database)) as db, db:
             db.execute("""INSERT INTO fin_massa_entregas
                           (data,valor_total,conta_pagar_id,usuario_id,criado_em)
                           VALUES ('2026-10-01',20,?,1,'agora')""", (account_id,))
@@ -192,7 +193,7 @@ class AccountsStabilityTests(unittest.TestCase):
 
     def test_delivery_sync_failure_rolls_back_generic_payment(self):
         account_id = self.linked_delivery()
-        with sqlite3.connect(self.database) as db:
+        with closing(sqlite3.connect(self.database)) as db, db:
             db.execute("""CREATE TRIGGER simulate_delivery_failure BEFORE UPDATE OF pago
                           ON fin_massa_entregas BEGIN
                           SELECT RAISE(ABORT, 'falha simulada'); END""")
@@ -211,7 +212,7 @@ class AccountsStabilityTests(unittest.TestCase):
         self.assertEqual(self.client.put(f"/api/fin/contas-pagar/{account_id}", json=self.account()).status_code, 409)
         self.assertEqual(len(self.rows()), 1)
         # A categoria pode ter sido renomeada, sem perder o vínculo com pães.
-        with sqlite3.connect(self.database) as db:
+        with closing(sqlite3.connect(self.database)) as db, db:
             db.execute("UPDATE fin_contas_pagar SET categoria='Compras' WHERE id=?", (account_id,))
         self.assertEqual(self.client.delete(f"/api/fin/contas-pagar/{account_id}").status_code, 409)
 

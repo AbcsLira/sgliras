@@ -1,4 +1,5 @@
 """Validação, atomicidade e concorrência de inventário em bancos temporários."""
+from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import sqlite3
@@ -21,7 +22,7 @@ class InventoryStabilityTests(unittest.TestCase):
         })
         with self.app.app_context():
             init_db()
-        with sqlite3.connect(self.app.config['DATABASE']) as db:
+        with closing(sqlite3.connect(self.app.config['DATABASE'])) as db, db:
             self.pid = db.execute('''
                 INSERT INTO produtos (nome,codigo,quantidade,criado_em)
                 VALUES ('Primeiro','INV1',10,'2026-10-01')
@@ -48,7 +49,7 @@ class InventoryStabilityTests(unittest.TestCase):
                 'quantidade_contada': count, **changes}
 
     def snapshot(self):
-        with sqlite3.connect(self.app.config['DATABASE']) as db:
+        with closing(sqlite3.connect(self.app.config['DATABASE'])) as db, db:
             return {
                 'products': db.execute('SELECT id,quantidade FROM produtos ORDER BY id').fetchall(),
                 'items': db.execute('''SELECT produto_id,quantidade_contada,diferenca,observacao
@@ -125,7 +126,7 @@ class InventoryStabilityTests(unittest.TestCase):
             'itens': [self.item(10)],
         }).status_code, 200)
         # Uma saída posterior à abertura não deve tornar a contagem relativa.
-        with sqlite3.connect(self.app.config['DATABASE']) as db:
+        with closing(sqlite3.connect(self.app.config['DATABASE'])) as db, db:
             db.execute('UPDATE produtos SET quantidade=8 WHERE id=?', (self.pid,))
         response = self.client.post(f'/api/inventarios/{inv}/finalizar')
         self.assertEqual(response.status_code, 200)
@@ -137,7 +138,7 @@ class InventoryStabilityTests(unittest.TestCase):
         self.client.put(f'/api/inventarios/{inv}/itens', json={'itens': [self.item()]})
         self.assertEqual(self.client.post(f'/api/inventarios/{inv}/finalizar').status_code, 200)
         # Uma repetição da finalização não pode sobrescrever movimentos novos.
-        with sqlite3.connect(self.app.config['DATABASE']) as db:
+        with closing(sqlite3.connect(self.app.config['DATABASE'])) as db, db:
             db.execute('UPDATE produtos SET quantidade=5 WHERE id=?', (self.pid,))
         before = self.snapshot()
         self.assertEqual(self.client.post(f'/api/inventarios/{inv}/finalizar').status_code, 400)
@@ -148,7 +149,7 @@ class InventoryStabilityTests(unittest.TestCase):
 
     def test_saved_legacy_invalid_count_prevents_entire_finalization(self):
         inv = self.create_inventory()
-        with sqlite3.connect(self.app.config['DATABASE']) as db:
+        with closing(sqlite3.connect(self.app.config['DATABASE'])) as db, db:
             db.execute('''UPDATE inventario_itens SET quantidade_contada=6,diferenca=-4
                           WHERE produto_id=?''', (self.pid,))
             db.execute('''UPDATE inventario_itens SET quantidade_contada=-1,diferenca=-21
@@ -162,7 +163,7 @@ class InventoryStabilityTests(unittest.TestCase):
         self.client.put(f'/api/inventarios/{inv}/itens', json={
             'itens': [self.item(), self.item(12, pid=self.other_pid)],
         })
-        with sqlite3.connect(self.app.config['DATABASE']) as db:
+        with closing(sqlite3.connect(self.app.config['DATABASE'])) as db, db:
             db.execute(f'''CREATE TRIGGER fail_count BEFORE UPDATE OF quantidade ON produtos
                            WHEN NEW.id={self.other_pid}
                            BEGIN SELECT RAISE(ABORT, 'test failure'); END''')

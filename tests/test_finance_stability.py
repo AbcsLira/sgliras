@@ -1,4 +1,5 @@
 """Integridade financeira em bancos descartáveis, sem acessar estoque.db."""
+from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import sqlite3
@@ -29,11 +30,11 @@ class FinanceStabilityTests(unittest.TestCase):
         return client
 
     def rows(self, sql, params=()):
-        with sqlite3.connect(self.database) as db:
+        with closing(sqlite3.connect(self.database)) as db, db:
             return db.execute(sql, params).fetchall()
 
     def execute(self, sql, params=()):
-        with sqlite3.connect(self.database) as db:
+        with closing(sqlite3.connect(self.database)) as db, db:
             db.execute(sql, params)
 
     def snapshot(self):

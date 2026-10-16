@@ -2,6 +2,7 @@
 import os
 import glob
 import sqlite3
+from contextlib import closing
 from datetime import datetime
 from flask import current_app
 
@@ -18,10 +19,13 @@ def fazer_backup(motivo="automatico"):
         # banco num estado inconsistente (dados recentes podem estar só
         # no -wal e ainda não gravados no .db principal). src.backup(dst)
         # garante uma cópia íntegra e consistente da transação em curso.
-        with sqlite3.connect(current_app.config["DATABASE"]) as src, sqlite3.connect(destino) as dst:
-            src.backup(dst)
+        # O contexto da conexão SQLite só encerra a transação. closing também
+        # libera os arquivos, inclusive se abrir o destino ou copiar falhar.
+        with closing(sqlite3.connect(current_app.config["DATABASE"])) as src:
+            with closing(sqlite3.connect(destino)) as dst, dst:
+                src.backup(dst)
     except Exception as e:
-        print(f"⚠️  Falha ao criar backup: {e}")
+        current_app.logger.warning('Falha ao criar backup: %s', e)
         return None
 
     # Limpeza: mantém só os 30 backups mais recentes
@@ -48,9 +52,9 @@ def backup_diario_necessario():
 def verificar_integridade_banco():
     """Roda PRAGMA integrity_check no banco. Retorna (ok, mensagem)."""
     try:
-        conn = sqlite3.connect(current_app.config["DATABASE"])
-        resultado = conn.execute("PRAGMA integrity_check").fetchone()
-        conn.close()
+        with closing(sqlite3.connect(current_app.config["DATABASE"])) as conn:
+            with closing(conn.execute("PRAGMA integrity_check")) as cursor:
+                resultado = cursor.fetchone()
         if resultado and resultado[0] == "ok":
             return True, "ok"
         return False, str(resultado[0] if resultado else "resultado vazio")

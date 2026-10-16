@@ -1,4 +1,5 @@
 """Falhas, repetição e concorrência usam somente bancos temporários."""
+from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import sqlite3
@@ -36,7 +37,7 @@ class StockStabilityTests(unittest.TestCase):
         return {'produto_id': self.pid, 'tipo': 'saida', 'quantidade': 2, **changes}
 
     def state(self):
-        with sqlite3.connect(self.app.config['DATABASE']) as db:
+        with closing(sqlite3.connect(self.app.config['DATABASE'])) as db, db:
             return (db.execute('SELECT quantidade FROM produtos WHERE id=?', (self.pid,)).fetchone()[0],
                     db.execute('SELECT COUNT(*) FROM movimentacoes').fetchone()[0],
                     db.execute('SELECT COUNT(*) FROM operacoes_idempotentes').fetchone()[0])
@@ -100,7 +101,7 @@ class StockStabilityTests(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(self.state(), (10, 0, 0))
         # A genuine SQLite failure after the first item must not commit it.
-        with sqlite3.connect(self.app.config['DATABASE']) as db:
+        with closing(sqlite3.connect(self.app.config['DATABASE'])) as db, db:
             db.execute('''CREATE TRIGGER fail_second BEFORE INSERT ON movimentacoes
                           WHEN NEW.observacao='fail' BEGIN SELECT RAISE(ABORT, 'test failure'); END''')
         response = self.client.post('/api/movimentacoes/lote', json={
@@ -150,7 +151,7 @@ class StockStabilityTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/produtos').json[0]['ativo'], 0)
 
     def test_audit_failure_rolls_back_product_deletion(self):
-        with sqlite3.connect(self.app.config['DATABASE']) as db:
+        with closing(sqlite3.connect(self.app.config['DATABASE'])) as db, db:
             db.execute('''CREATE TRIGGER fail_audit BEFORE INSERT ON log_auditoria
                           BEGIN SELECT RAISE(ABORT, 'test failure'); END''')
         self.assertEqual(self.client.delete(f'/api/produtos/{self.pid}').status_code, 409)

@@ -1,4 +1,5 @@
 """Regressão HTTP com bancos temporários; nunca usa estoque.db real."""
+from contextlib import closing
 import json
 from pathlib import Path
 import re
@@ -48,7 +49,7 @@ class RegressionTests(unittest.TestCase):
         for role in (None, 'admin', 'caixa', 'estoquista'):
             # Permissions now come from the current user record, not stale cookies.
             if role:
-                with sqlite3.connect(self.app.config['DATABASE']) as db:
+                with closing(sqlite3.connect(self.app.config['DATABASE'])) as db, db:
                     db.execute('UPDATE usuarios SET perfil=? WHERE id=1', (role,))
             with self.client.session_transaction() as session:
                 session.clear()
@@ -132,7 +133,7 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(response.status_code, 201)
         files = list(Path(self.app.config['BACKUP_DIR']).glob('*.db'))
         self.assertEqual(len(files), 1)
-        with sqlite3.connect(files[0]) as db:
+        with closing(sqlite3.connect(files[0])) as db, db:
             self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
             self.assertEqual(db.execute('SELECT quantidade FROM produtos').fetchone()[0], 8)
         # Initialization remains repeatable without clearing existing records.
