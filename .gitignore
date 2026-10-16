@@ -1,0 +1,11 @@
+# Dados e configuração locais
+/config.ini
+/estoque.db
+/estoque.db-shm
+/estoque.db-wal
+/backups/
+/venv/
+/.venv/
+# Artefatos Python
+__pycache__/
+*.py[cod]

@@ -80,21 +80,26 @@ python app.py
 
 O sistema ficará disponível em `http://localhost:8888` (ou na porta configurada em `config.ini`).
 
-Na primeira execução, o banco de dados e as tabelas são criados automaticamente, junto com um usuário administrador padrão — configure a senha em `config.ini` antes do primeiro acesso.
+Na primeira execução, o banco de dados e as tabelas são criados automaticamente, junto com um usuário administrador padrão definido no código. Altere a senha na aplicação após o primeiro acesso.
 
 ## 📁 Estrutura do projeto
 
 ```
 sg-liras/
-├── app.py                  # Aplicação Flask (rotas, lógica de negócio, banco)
-├── config.ini               # Configurações do servidor
-├── templates/
-│   ├── index.html            # Interface principal (SPA)
-│   └── login.html            # Tela de login
-├── static/
-│   └── fonts/                # Fontes tipográficas
-└── backups/                # Backups automáticos do banco
+├── app.py                   # Entrada do servidor
+├── sgliras/                 # Backend dividido por responsabilidade
+│   ├── routes/              # Rotas separadas por módulo
+│   ├── database.py          # Schema, migrações e conexões
+│   ├── security.py          # Autenticação e permissões
+│   └── backups.py           # Backup e integridade
+├── templates/               # HTML da aplicação e do login
+├── static/                  # CSS e JavaScript por módulo
+├── tests/                   # Testes de regressão com bancos temporários
+├── config.ini               # Configuração local (não versionada)
+└── backups/                 # Backups locais (não versionados)
 ```
+
+Veja [ARCHITECTURE.md](ARCHITECTURE.md) para o mapa dos módulos e os comandos de teste.
 
 ## 📌 Sobre o projeto
 

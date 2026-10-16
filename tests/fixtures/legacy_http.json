@@ -1,0 +1,2382 @@
+{
+  "routes": [
+    [
+      "/",
+      "index",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/auth/login",
+      "api_login",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/auth/logout",
+      "api_logout",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/auth/me",
+      "api_me",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/auth/senha",
+      "alterar_senha",
+      [
+        "OPTIONS",
+        "PUT"
+      ]
+    ],
+    [
+      "/api/backups",
+      "criar_backup_manual",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/backups",
+      "listar_backups",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/backups/<nome>",
+      "baixar_backup",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/categorias",
+      "listar_categorias",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/custos-fixos",
+      "criar_custo_fixo",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/custos-fixos",
+      "listar_custos_fixos",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/custos-fixos-globais",
+      "criar_custo_fixo_global",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/custos-fixos-globais",
+      "listar_custos_fixos_globais",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/custos-fixos-globais/<int:gid>",
+      "atualizar_custo_fixo_global",
+      [
+        "OPTIONS",
+        "PUT"
+      ]
+    ],
+    [
+      "/api/custos-fixos-globais/<int:gid>",
+      "deletar_custo_fixo_global",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/custos-fixos/<int:cid>",
+      "atualizar_custo_fixo",
+      [
+        "OPTIONS",
+        "PUT"
+      ]
+    ],
+    [
+      "/api/custos-fixos/<int:cid>",
+      "deletar_custo_fixo",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/dashboard",
+      "dashboard",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fichas",
+      "criar_ficha",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fichas",
+      "listar_fichas",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fichas/<int:fid>",
+      "atualizar_ficha",
+      [
+        "OPTIONS",
+        "PUT"
+      ]
+    ],
+    [
+      "/api/fichas/<int:fid>",
+      "deletar_ficha",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fichas/<int:fid>/custos-fixos",
+      "vincular_custo_fixo",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fichas/<int:fid>/custos-fixos/<int:cid>",
+      "desvincular_custo_fixo",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fichas/<int:fid>/historico-preco",
+      "historico_preco_ficha",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/alertas-vencimento",
+      "alertas_vencimento",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/categorias-pagar",
+      "categorias_pagar",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/categorias-pagar",
+      "criar_categoria_pagar",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/categorias-pagar/<int:cid>",
+      "excluir_categoria_pagar",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/categorias-pagar/<int:cid>",
+      "renomear_categoria_pagar",
+      [
+        "OPTIONS",
+        "PUT"
+      ]
+    ],
+    [
+      "/api/fin/categorias-receber",
+      "categorias_receber",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/comparativo-fds",
+      "comparativo_fds",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/comparativo-resultado",
+      "comparativo_resultado",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/contas-pagar",
+      "criar_conta_pagar",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/contas-pagar",
+      "listar_contas_pagar",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/contas-pagar/<int:cid>",
+      "deletar_conta_pagar",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/contas-pagar/<int:cid>",
+      "editar_conta_pagar",
+      [
+        "OPTIONS",
+        "PUT"
+      ]
+    ],
+    [
+      "/api/fin/contas-pagar/<int:cid>/pagar",
+      "pagar_conta",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/contas-pagar/resumo-categorias",
+      "resumo_categorias_pagar",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/contas-receber",
+      "criar_conta_receber",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/contas-receber",
+      "listar_contas_receber",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/contas-receber/<int:cid>",
+      "deletar_conta_receber",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/contas-receber/<int:cid>/receber",
+      "receber_conta",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/fechamento",
+      "listar_fechamentos",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/fechamento",
+      "salvar_fechamento",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/fechamento/<string:data>",
+      "deletar_fechamento",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/fechamento/<string:data>",
+      "obter_fechamento",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/massa-entregas",
+      "listar_massa_entregas",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/massa-entregas",
+      "registrar_massa_entrega",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/massa-entregas/<int:eid>",
+      "atualizar_massa_entrega",
+      [
+        "OPTIONS",
+        "PUT"
+      ]
+    ],
+    [
+      "/api/fin/massa-entregas/<int:eid>",
+      "deletar_massa_entrega",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/massa-pagamento",
+      "registrar_pagamento_massa",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/massa-precos",
+      "listar_massa_precos",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/massa-precos",
+      "salvar_massa_preco",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/massa-precos/<string:data>",
+      "deletar_massa_preco",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/meta-mensal",
+      "obter_meta_mensal",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/meta-mensal",
+      "salvar_meta_mensal",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/paes-historico-pagamentos",
+      "paes_historico_pagamentos",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/paes-lancar-contas",
+      "paes_lancar_contas",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/paes-pagamento",
+      "registrar_pagamento_paes",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/paes-pagamento/<int:pid>",
+      "desfazer_pagamento_paes",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/preco-pao",
+      "listar_precos_pao",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/preco-pao",
+      "salvar_preco_pao",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fin/preco-pao-vigente/<string:data>",
+      "preco_pao_vigente",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/preco-pao/<string:data>",
+      "deletar_preco_pao",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/relatorio-mensal",
+      "relatorio_mensal",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/relatorio-paes",
+      "relatorio_paes",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fin/resumo-mes",
+      "resumo_mes",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fornecedores",
+      "criar_fornecedor",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/fornecedores",
+      "listar_fornecedores",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fornecedores/<int:fid>",
+      "atualizar_fornecedor",
+      [
+        "OPTIONS",
+        "PUT"
+      ]
+    ],
+    [
+      "/api/fornecedores/<int:fid>",
+      "deletar_fornecedor",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/fornecedores/<int:fid>/produtos",
+      "listar_produtos_do_fornecedor",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/inventario/aplicar",
+      "aplicar_contagem_inventario",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/inventario/produtos",
+      "produtos_para_inventario",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/inventarios",
+      "criar_inventario",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/inventarios",
+      "listar_inventarios",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/inventarios/<int:inv_id>",
+      "cancelar_inventario",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/inventarios/<int:inv_id>",
+      "obter_inventario",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/inventarios/<int:inv_id>/finalizar",
+      "finalizar_inventario",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/inventarios/<int:inv_id>/itens",
+      "salvar_itens_inventario",
+      [
+        "OPTIONS",
+        "PUT"
+      ]
+    ],
+    [
+      "/api/lista-compras/sugestao",
+      "sugestao_lista_compras",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/listagem-pdf",
+      "listagem_pdf",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/log-auditoria",
+      "listar_log_auditoria",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/movimentacoes",
+      "listar_movimentacoes",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/movimentacoes",
+      "registrar_movimentacao",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/perfis",
+      "listar_perfis",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/produtos",
+      "criar_produto",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/produtos",
+      "listar_produtos",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/produtos/<int:pid>",
+      "atualizar_produto",
+      [
+        "OPTIONS",
+        "PUT"
+      ]
+    ],
+    [
+      "/api/produtos/<int:pid>",
+      "deletar_produto",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/produtos/<int:pid>/ativo",
+      "alternar_ativo_produto",
+      [
+        "OPTIONS",
+        "PUT"
+      ]
+    ],
+    [
+      "/api/produtos/<int:pid>/fornecedores",
+      "listar_fornecedores_do_produto",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/produtos/<int:pid>/fornecedores",
+      "vincular_fornecedor",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/produtos/<int:pid>/fornecedores/<int:vid>",
+      "desvincular_fornecedor",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/relatorios/consumo",
+      "relatorio_consumo",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/status-backup",
+      "status_backup",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/usuarios",
+      "criar_usuario",
+      [
+        "OPTIONS",
+        "POST"
+      ]
+    ],
+    [
+      "/api/usuarios",
+      "listar_usuarios",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/api/usuarios/<int:uid>",
+      "atualizar_usuario",
+      [
+        "OPTIONS",
+        "PUT"
+      ]
+    ],
+    [
+      "/api/usuarios/<int:uid>",
+      "deletar_usuario",
+      [
+        "DELETE",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/login",
+      "login_page",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ],
+    [
+      "/static/<path:filename>",
+      "static",
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ]
+    ]
+  ],
+  "responses": {
+    "None:/login": {
+      "status": 200,
+      "json": null,
+      "location": null
+    },
+    "None:/": {
+      "status": 302,
+      "json": null,
+      "location": "/login"
+    },
+    "None:/api/auth/me": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/usuarios": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/categorias": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/produtos": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/movimentacoes": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/dashboard": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/listagem-pdf": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fichas": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fichas/<int:fid>/historico-preco": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/custos-fixos": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/custos-fixos-globais": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/backups": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/backups/<nome>": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/status-backup": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fornecedores": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fornecedores/<int:fid>/produtos": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/produtos/<int:pid>/fornecedores": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/lista-compras/sugestao": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/inventario/produtos": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/inventarios": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/inventarios/<int:inv_id>": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/relatorios/consumo": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/log-auditoria": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/perfis": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/fechamento": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/fechamento/<string:data>": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/resumo-mes": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/contas-pagar": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/contas-pagar/resumo-categorias": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/contas-receber": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/categorias-pagar": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/categorias-receber": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/preco-pao": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/preco-pao-vigente/<string:data>": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/relatorio-paes": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/paes-historico-pagamentos": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/massa-precos": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/massa-entregas": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/meta-mensal": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/comparativo-fds": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/alertas-vencimento": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/comparativo-resultado": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "None:/api/fin/relatorio-mensal": {
+      "status": 401,
+      "json": {
+        "erro": "Não autenticado"
+      },
+      "location": null
+    },
+    "admin:/login": {
+      "status": 302,
+      "json": null,
+      "location": "/"
+    },
+    "admin:/": {
+      "status": 200,
+      "json": null,
+      "location": null
+    },
+    "admin:/api/auth/me": {
+      "status": 200,
+      "json": {
+        "id": 1,
+        "nome": "Administrador",
+        "perfil": "admin",
+        "perfil_label": "Administrador",
+        "permissoes": [
+          "dashboard",
+          "produtos",
+          "movimentacoes",
+          "fichas",
+          "usuarios",
+          "financeiro"
+        ],
+        "usuario": "admin"
+      },
+      "location": null
+    },
+    "admin:/api/usuarios": {
+      "status": 200,
+      "json": [
+        {
+          "ativo": 1,
+          "criado_em": "<timestamp>",
+          "id": 1,
+          "nome": "Administrador",
+          "perfil": "admin",
+          "usuario": "admin"
+        }
+      ],
+      "location": null
+    },
+    "admin:/api/categorias": {
+      "status": 200,
+      "json": [
+        {
+          "id": 1,
+          "nome": "Alimentos"
+        },
+        {
+          "id": 2,
+          "nome": "Bebidas"
+        },
+        {
+          "id": 4,
+          "nome": "Embalagens"
+        },
+        {
+          "id": 8,
+          "nome": "Gelatos"
+        },
+        {
+          "id": 3,
+          "nome": "Limpeza"
+        },
+        {
+          "id": 6,
+          "nome": "Molhos"
+        },
+        {
+          "id": 7,
+          "nome": "Oficina"
+        },
+        {
+          "id": 5,
+          "nome": "Outros"
+        }
+      ],
+      "location": null
+    },
+    "admin:/api/produtos": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/movimentacoes": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/dashboard": {
+      "status": 200,
+      "json": {
+        "criticos": 0,
+        "criticos_por_categoria": {},
+        "proximos_vencimento": [],
+        "sem_estoque": 0,
+        "total_produtos": 0,
+        "valor_total": 0,
+        "vencidos": []
+      },
+      "location": null
+    },
+    "admin:/api/listagem-pdf": {
+      "status": 200,
+      "json": {
+        "eh_admin": true,
+        "gerado_em": "<timestamp>",
+        "grupos": {},
+        "total_geral": 0
+      },
+      "location": null
+    },
+    "admin:/api/fichas": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/fichas/<int:fid>/historico-preco": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/custos-fixos": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/custos-fixos-globais": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/backups": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/backups/<nome>": {
+      "status": 404,
+      "json": {
+        "erro": "Backup não encontrado"
+      },
+      "location": null
+    },
+    "admin:/api/status-backup": {
+      "status": 200,
+      "json": {
+        "backup_hoje": false,
+        "banco_msg": "ok",
+        "banco_ok": true,
+        "tamanho_banco_kb": 160.0,
+        "total_backups_internos": 0,
+        "ultimo_backup": null
+      },
+      "location": null
+    },
+    "admin:/api/fornecedores": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/fornecedores/<int:fid>/produtos": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/produtos/<int:pid>/fornecedores": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/lista-compras/sugestao": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/inventario/produtos": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/inventarios": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/inventarios/<int:inv_id>": {
+      "status": 404,
+      "json": {
+        "erro": "Inventário não encontrado"
+      },
+      "location": null
+    },
+    "admin:/api/relatorios/consumo": {
+      "status": 400,
+      "json": {
+        "erro": "Informe data de início e fim"
+      },
+      "location": null
+    },
+    "admin:/api/log-auditoria": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/perfis": {
+      "status": 200,
+      "json": [
+        {
+          "id": "admin",
+          "label": "Administrador",
+          "permissoes": [
+            "dashboard",
+            "produtos",
+            "movimentacoes",
+            "fichas",
+            "usuarios",
+            "financeiro"
+          ]
+        },
+        {
+          "id": "estoquista",
+          "label": "Estoquista",
+          "permissoes": [
+            "dashboard",
+            "produtos",
+            "movimentacoes"
+          ]
+        },
+        {
+          "id": "caixa",
+          "label": "Caixa",
+          "permissoes": [
+            "dashboard",
+            "movimentacoes"
+          ]
+        }
+      ],
+      "location": null
+    },
+    "admin:/api/fin/fechamento": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/fin/fechamento/<string:data>": {
+      "status": 200,
+      "json": {},
+      "location": null
+    },
+    "admin:/api/fin/resumo-mes": {
+      "status": 200,
+      "json": {
+        "dias": 0,
+        "mes": "2026-10",
+        "por_dia": [],
+        "totais": {}
+      },
+      "location": null
+    },
+    "admin:/api/fin/contas-pagar": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/fin/contas-pagar/resumo-categorias": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/fin/contas-receber": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/fin/categorias-pagar": {
+      "status": 200,
+      "json": [
+        {
+          "id": 1,
+          "nome": "Fornecedor"
+        },
+        {
+          "id": 5,
+          "nome": "Impostos"
+        },
+        {
+          "id": 4,
+          "nome": "Manutenção"
+        },
+        {
+          "id": 6,
+          "nome": "Outros"
+        },
+        {
+          "id": 3,
+          "nome": "Salário"
+        },
+        {
+          "id": 2,
+          "nome": "Água/Luz/Gás"
+        }
+      ],
+      "location": null
+    },
+    "admin:/api/fin/categorias-receber": {
+      "status": 200,
+      "json": [
+        "Venda",
+        "Serviço",
+        "Reembolso",
+        "Outros"
+      ],
+      "location": null
+    },
+    "admin:/api/fin/preco-pao": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/fin/preco-pao-vigente/<string:data>": {
+      "status": 200,
+      "json": {},
+      "location": null
+    },
+    "admin:/api/fin/relatorio-paes": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/fin/paes-historico-pagamentos": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/fin/massa-precos": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/fin/massa-entregas": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/fin/meta-mensal": {
+      "status": 200,
+      "json": {
+        "dias_lancados": 0,
+        "media_diaria": 0,
+        "mes": "2026-10",
+        "meta_valor": null,
+        "realizado": 0
+      },
+      "location": null
+    },
+    "admin:/api/fin/comparativo-fds": {
+      "status": 200,
+      "json": {
+        "fds": [],
+        "mes": "2026-10",
+        "modo": "mes"
+      },
+      "location": null
+    },
+    "admin:/api/fin/alertas-vencimento": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "admin:/api/fin/comparativo-resultado": {
+      "status": 200,
+      "json": {
+        "custos_operacionais": {
+          "massas": 0,
+          "paes": 0
+        },
+        "despesas_cap": [],
+        "mes": "2026-10",
+        "receita": {
+          "delivery": 0,
+          "dias_lancados": 0,
+          "frete": 0,
+          "total": 0,
+          "venda_total": 0
+        },
+        "resultado_estimado": 0,
+        "total_despesas_cap": 0
+      },
+      "location": null
+    },
+    "admin:/api/fin/relatorio-mensal": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "caixa:/login": {
+      "status": 302,
+      "json": null,
+      "location": "/"
+    },
+    "caixa:/": {
+      "status": 200,
+      "json": null,
+      "location": null
+    },
+    "caixa:/api/auth/me": {
+      "status": 200,
+      "json": {
+        "id": 1,
+        "nome": "Administrador",
+        "perfil": "caixa",
+        "perfil_label": "Caixa",
+        "permissoes": [
+          "dashboard",
+          "movimentacoes"
+        ],
+        "usuario": "admin"
+      },
+      "location": null
+    },
+    "caixa:/api/usuarios": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "caixa:/api/categorias": {
+      "status": 200,
+      "json": [
+        {
+          "id": 1,
+          "nome": "Alimentos"
+        },
+        {
+          "id": 2,
+          "nome": "Bebidas"
+        },
+        {
+          "id": 4,
+          "nome": "Embalagens"
+        },
+        {
+          "id": 8,
+          "nome": "Gelatos"
+        },
+        {
+          "id": 3,
+          "nome": "Limpeza"
+        },
+        {
+          "id": 6,
+          "nome": "Molhos"
+        },
+        {
+          "id": 7,
+          "nome": "Oficina"
+        },
+        {
+          "id": 5,
+          "nome": "Outros"
+        }
+      ],
+      "location": null
+    },
+    "caixa:/api/produtos": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "caixa:/api/movimentacoes": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "caixa:/api/dashboard": {
+      "status": 200,
+      "json": {
+        "criticos": 0,
+        "criticos_por_categoria": {},
+        "proximos_vencimento": [],
+        "sem_estoque": 0,
+        "total_produtos": 0,
+        "valor_total": null,
+        "vencidos": []
+      },
+      "location": null
+    },
+    "caixa:/api/listagem-pdf": {
+      "status": 200,
+      "json": {
+        "eh_admin": false,
+        "gerado_em": "<timestamp>",
+        "grupos": {},
+        "total_geral": null
+      },
+      "location": null
+    },
+    "caixa:/api/fichas": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "caixa:/api/fichas/<int:fid>/historico-preco": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "caixa:/api/custos-fixos": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "caixa:/api/custos-fixos-globais": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "caixa:/api/backups": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "caixa:/api/backups/<nome>": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "caixa:/api/status-backup": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas administradores"
+      },
+      "location": null
+    },
+    "caixa:/api/fornecedores": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "caixa:/api/fornecedores/<int:fid>/produtos": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "caixa:/api/produtos/<int:pid>/fornecedores": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "caixa:/api/lista-compras/sugestao": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "caixa:/api/inventario/produtos": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "caixa:/api/inventarios": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "caixa:/api/inventarios/<int:inv_id>": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "caixa:/api/relatorios/consumo": {
+      "status": 400,
+      "json": {
+        "erro": "Informe data de início e fim"
+      },
+      "location": null
+    },
+    "caixa:/api/log-auditoria": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode ver o log de auditoria"
+      },
+      "location": null
+    },
+    "caixa:/api/perfis": {
+      "status": 200,
+      "json": [
+        {
+          "id": "admin",
+          "label": "Administrador",
+          "permissoes": [
+            "dashboard",
+            "produtos",
+            "movimentacoes",
+            "fichas",
+            "usuarios",
+            "financeiro"
+          ]
+        },
+        {
+          "id": "estoquista",
+          "label": "Estoquista",
+          "permissoes": [
+            "dashboard",
+            "produtos",
+            "movimentacoes"
+          ]
+        },
+        {
+          "id": "caixa",
+          "label": "Caixa",
+          "permissoes": [
+            "dashboard",
+            "movimentacoes"
+          ]
+        }
+      ],
+      "location": null
+    },
+    "caixa:/api/fin/fechamento": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/fechamento/<string:data>": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/resumo-mes": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/contas-pagar": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/contas-pagar/resumo-categorias": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/contas-receber": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/categorias-pagar": {
+      "status": 200,
+      "json": [
+        {
+          "id": 1,
+          "nome": "Fornecedor"
+        },
+        {
+          "id": 5,
+          "nome": "Impostos"
+        },
+        {
+          "id": 4,
+          "nome": "Manutenção"
+        },
+        {
+          "id": 6,
+          "nome": "Outros"
+        },
+        {
+          "id": 3,
+          "nome": "Salário"
+        },
+        {
+          "id": 2,
+          "nome": "Água/Luz/Gás"
+        }
+      ],
+      "location": null
+    },
+    "caixa:/api/fin/categorias-receber": {
+      "status": 200,
+      "json": [
+        "Venda",
+        "Serviço",
+        "Reembolso",
+        "Outros"
+      ],
+      "location": null
+    },
+    "caixa:/api/fin/preco-pao": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/preco-pao-vigente/<string:data>": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/relatorio-paes": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/paes-historico-pagamentos": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/massa-precos": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/massa-entregas": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/meta-mensal": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/comparativo-fds": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/alertas-vencimento": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/comparativo-resultado": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "caixa:/api/fin/relatorio-mensal": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/login": {
+      "status": 302,
+      "json": null,
+      "location": "/"
+    },
+    "estoquista:/": {
+      "status": 200,
+      "json": null,
+      "location": null
+    },
+    "estoquista:/api/auth/me": {
+      "status": 200,
+      "json": {
+        "id": 1,
+        "nome": "Administrador",
+        "perfil": "estoquista",
+        "perfil_label": "Estoquista",
+        "permissoes": [
+          "dashboard",
+          "produtos",
+          "movimentacoes"
+        ],
+        "usuario": "admin"
+      },
+      "location": null
+    },
+    "estoquista:/api/usuarios": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "estoquista:/api/categorias": {
+      "status": 200,
+      "json": [
+        {
+          "id": 1,
+          "nome": "Alimentos"
+        },
+        {
+          "id": 2,
+          "nome": "Bebidas"
+        },
+        {
+          "id": 4,
+          "nome": "Embalagens"
+        },
+        {
+          "id": 8,
+          "nome": "Gelatos"
+        },
+        {
+          "id": 3,
+          "nome": "Limpeza"
+        },
+        {
+          "id": 6,
+          "nome": "Molhos"
+        },
+        {
+          "id": 7,
+          "nome": "Oficina"
+        },
+        {
+          "id": 5,
+          "nome": "Outros"
+        }
+      ],
+      "location": null
+    },
+    "estoquista:/api/produtos": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "estoquista:/api/movimentacoes": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "estoquista:/api/dashboard": {
+      "status": 200,
+      "json": {
+        "criticos": 0,
+        "criticos_por_categoria": {},
+        "proximos_vencimento": [],
+        "sem_estoque": 0,
+        "total_produtos": 0,
+        "valor_total": null,
+        "vencidos": []
+      },
+      "location": null
+    },
+    "estoquista:/api/listagem-pdf": {
+      "status": 200,
+      "json": {
+        "eh_admin": false,
+        "gerado_em": "<timestamp>",
+        "grupos": {},
+        "total_geral": null
+      },
+      "location": null
+    },
+    "estoquista:/api/fichas": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "estoquista:/api/fichas/<int:fid>/historico-preco": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "estoquista:/api/custos-fixos": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "estoquista:/api/custos-fixos-globais": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "estoquista:/api/backups": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "estoquista:/api/backups/<nome>": {
+      "status": 403,
+      "json": {
+        "erro": "Sem permissão"
+      },
+      "location": null
+    },
+    "estoquista:/api/status-backup": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas administradores"
+      },
+      "location": null
+    },
+    "estoquista:/api/fornecedores": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "estoquista:/api/fornecedores/<int:fid>/produtos": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "estoquista:/api/produtos/<int:pid>/fornecedores": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "estoquista:/api/lista-compras/sugestao": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "estoquista:/api/inventario/produtos": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "estoquista:/api/inventarios": {
+      "status": 200,
+      "json": [],
+      "location": null
+    },
+    "estoquista:/api/inventarios/<int:inv_id>": {
+      "status": 404,
+      "json": {
+        "erro": "Inventário não encontrado"
+      },
+      "location": null
+    },
+    "estoquista:/api/relatorios/consumo": {
+      "status": 400,
+      "json": {
+        "erro": "Informe data de início e fim"
+      },
+      "location": null
+    },
+    "estoquista:/api/log-auditoria": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode ver o log de auditoria"
+      },
+      "location": null
+    },
+    "estoquista:/api/perfis": {
+      "status": 200,
+      "json": [
+        {
+          "id": "admin",
+          "label": "Administrador",
+          "permissoes": [
+            "dashboard",
+            "produtos",
+            "movimentacoes",
+            "fichas",
+            "usuarios",
+            "financeiro"
+          ]
+        },
+        {
+          "id": "estoquista",
+          "label": "Estoquista",
+          "permissoes": [
+            "dashboard",
+            "produtos",
+            "movimentacoes"
+          ]
+        },
+        {
+          "id": "caixa",
+          "label": "Caixa",
+          "permissoes": [
+            "dashboard",
+            "movimentacoes"
+          ]
+        }
+      ],
+      "location": null
+    },
+    "estoquista:/api/fin/fechamento": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/fechamento/<string:data>": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/resumo-mes": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/contas-pagar": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/contas-pagar/resumo-categorias": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/contas-receber": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/categorias-pagar": {
+      "status": 200,
+      "json": [
+        {
+          "id": 1,
+          "nome": "Fornecedor"
+        },
+        {
+          "id": 5,
+          "nome": "Impostos"
+        },
+        {
+          "id": 4,
+          "nome": "Manutenção"
+        },
+        {
+          "id": 6,
+          "nome": "Outros"
+        },
+        {
+          "id": 3,
+          "nome": "Salário"
+        },
+        {
+          "id": 2,
+          "nome": "Água/Luz/Gás"
+        }
+      ],
+      "location": null
+    },
+    "estoquista:/api/fin/categorias-receber": {
+      "status": 200,
+      "json": [
+        "Venda",
+        "Serviço",
+        "Reembolso",
+        "Outros"
+      ],
+      "location": null
+    },
+    "estoquista:/api/fin/preco-pao": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/preco-pao-vigente/<string:data>": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/relatorio-paes": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/paes-historico-pagamentos": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/massa-precos": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/massa-entregas": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/meta-mensal": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/comparativo-fds": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/alertas-vencimento": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/comparativo-resultado": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    },
+    "estoquista:/api/fin/relatorio-mensal": {
+      "status": 403,
+      "json": {
+        "erro": "Apenas o administrador pode acessar o módulo financeiro"
+      },
+      "location": null
+    }
+  }
+}
