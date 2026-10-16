@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file
+from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3, os, hashlib, secrets, configparser, shutil, glob
 from datetime import datetime, timedelta
 from functools import wraps
@@ -36,7 +37,18 @@ PERFIS = {
     "caixa":      {"label":"Caixa",        "permissoes":["dashboard","movimentacoes"]},
 }
 
-def hash_senha(s): return hashlib.sha256(s.encode()).hexdigest()
+def hash_senha(s): return generate_password_hash(s)
+
+def _hash_legado_sha256(s): return hashlib.sha256(s.encode()).hexdigest()
+
+def verificar_senha(hash_armazenado, senha_fornecida):
+    """Verifica a senha contra o hash salvo. Suporta tanto o formato novo
+    (werkzeug, com salt) quanto o formato antigo (SHA-256 puro, sem salt),
+    para não travar o acesso de usuários criados antes da migração."""
+    if hash_armazenado.startswith(("pbkdf2:", "scrypt:")):
+        return check_password_hash(hash_armazenado, senha_fornecida)
+    # Hash no formato legado (sha256 hex puro, sem salt)
+    return hash_armazenado == _hash_legado_sha256(senha_fornecida)
 
 # ── Banco ─────────────────────────────────────────────────────────────────────
 def init_db():
@@ -73,6 +85,8 @@ def init_db():
             preco_custo     REAL NOT NULL DEFAULT 0,
             preco_venda     REAL,
             estoque_min     INTEGER NOT NULL DEFAULT 5,
+            ativo           INTEGER NOT NULL DEFAULT 1,
+            codigo_barras   TEXT,
             criado_em       TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS movimentacoes (
@@ -302,6 +316,8 @@ def init_db():
         "ALTER TABLE produtos ADD COLUMN unid_embalagem INTEGER",
         "ALTER TABLE fin_massa_entregas ADD COLUMN conta_pagar_id INTEGER REFERENCES fin_contas_pagar(id)",
         "ALTER TABLE fin_paes_pagamento ADD COLUMN conta_pagar_id INTEGER REFERENCES fin_contas_pagar(id)",
+        "ALTER TABLE produtos ADD COLUMN ativo INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE produtos ADD COLUMN codigo_barras TEXT",
     ]:
         try: c.execute(sql); conn.commit()
         except: pass
@@ -348,7 +364,13 @@ def fazer_backup(motivo="automatico"):
     nome_backup = f"estoque_{timestamp}_{motivo}.db"
     destino = os.path.join(BACKUP_DIR, nome_backup)
     try:
-        shutil.copy2(DB_PATH, destino)
+        # Usa a API nativa de backup do SQLite em vez de copiar o arquivo
+        # diretamente: em modo WAL, uma cópia de arquivo pode capturar o
+        # banco num estado inconsistente (dados recentes podem estar só
+        # no -wal e ainda não gravados no .db principal). src.backup(dst)
+        # garante uma cópia íntegra e consistente da transação em curso.
+        with sqlite3.connect(DB_PATH) as src, sqlite3.connect(destino) as dst:
+            src.backup(dst)
     except Exception as e:
         print(f"⚠️  Falha ao criar backup: {e}")
         return None
@@ -418,10 +440,17 @@ def index(): return render_template("index.html")
 
 @app.route("/api/auth/login", methods=["POST"])
 def api_login():
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     u=db.execute("SELECT * FROM usuarios WHERE usuario=? AND ativo=1",(d.get("usuario",""),)).fetchone()
+    if not u or not verificar_senha(u["senha"], d.get("senha","")):
+        db.close()
+        return jsonify({"erro":"Usuário ou senha inválidos"}),401
+    # Migração preguiçosa: se a senha ainda está no formato antigo (sem salt),
+    # já reescreve para o formato seguro agora que sabemos que a senha está correta.
+    if not u["senha"].startswith(("pbkdf2:", "scrypt:")):
+        db.execute("UPDATE usuarios SET senha=? WHERE id=?", (hash_senha(d.get("senha","")), u["id"]))
+        db.commit()
     db.close()
-    if not u or u["senha"]!=hash_senha(d.get("senha","")): return jsonify({"erro":"Usuário ou senha inválidos"}),401
     session.update({"usuario_id":u["id"],"usuario":u["usuario"],"nome":u["nome"],"perfil":u["perfil"]})
     perms=PERFIS.get(u["perfil"],{}).get("permissoes",[])
     return jsonify({"ok":True,"nome":u["nome"],"perfil":u["perfil"],"perfil_label":PERFIS[u["perfil"]]["label"],"permissoes":perms})
@@ -439,9 +468,9 @@ def api_me():
 @app.route("/api/auth/senha",methods=["PUT"])
 @login_requerido
 def alterar_senha():
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     u=db.execute("SELECT senha FROM usuarios WHERE id=?",(session["usuario_id"],)).fetchone()
-    if u["senha"]!=hash_senha(d.get("senha_atual","")): db.close(); return jsonify({"erro":"Senha atual incorreta"}),400
+    if not verificar_senha(u["senha"], d.get("senha_atual","")): db.close(); return jsonify({"erro":"Senha atual incorreta"}),400
     db.execute("UPDATE usuarios SET senha=? WHERE id=?",(hash_senha(d["senha_nova"]),session["usuario_id"]))
     db.commit(); db.close(); return jsonify({"ok":True})
 
@@ -457,7 +486,7 @@ def listar_usuarios():
 @login_requerido
 @permissao_requerida("usuarios")
 def criar_usuario():
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     try:
         db.execute("INSERT INTO usuarios (nome,usuario,senha,perfil,ativo,criado_em) VALUES (?,?,?,?,?,?)",
                    (d["nome"],d["usuario"],hash_senha(d["senha"]),d.get("perfil","caixa"),1,datetime.now().isoformat()))
@@ -471,7 +500,7 @@ def criar_usuario():
 @login_requerido
 @permissao_requerida("usuarios")
 def atualizar_usuario(uid):
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     anterior=db.execute("SELECT nome,usuario,perfil,ativo FROM usuarios WHERE id=?",(uid,)).fetchone()
     if d.get("senha"):
         db.execute("UPDATE usuarios SET nome=?,usuario=?,perfil=?,ativo=?,senha=? WHERE id=?",
@@ -539,7 +568,7 @@ def listar_produtos():
 @login_requerido
 @permissao_requerida("produtos")
 def criar_produto():
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     try:
         pv=d.get("preco_venda"); pv=None if pv in ("",None) else float(pv)
         sq=d.get("sub_qtd_por_un"); sq=None if sq in ("",None,0,"0") else float(sq)
@@ -550,14 +579,19 @@ def criar_produto():
         pe=d.get("preco_embalagem"); pe=None if pe in ("",None,0,"0") else float(pe)
         te=d.get("tipo_embalagem") or None
         ue=d.get("unid_embalagem"); ue=None if ue in ("",None,0,"0") else int(ue)
+        cb=d.get("codigo_barras") or None
+        if cb:
+            existe=db.execute("SELECT nome FROM produtos WHERE codigo_barras=?",(cb,)).fetchone()
+            if existe:
+                return jsonify({"erro":f"Código de barras já usado no produto \"{existe['nome']}\""}),400
         cur = db.execute("""INSERT INTO produtos
             (nome,codigo,unidade,categoria_id,quantidade,
              sub_qtd_por_un,sub_unidade,unid_por_fardo,unid_fardo_label,validade,
-             preco_custo,preco_venda,estoque_min,preco_embalagem,tipo_embalagem,unid_embalagem,criado_em)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+             preco_custo,preco_venda,estoque_min,preco_embalagem,tipo_embalagem,unid_embalagem,codigo_barras,criado_em)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (d["nome"],d["codigo"],d.get("unidade","un"),d.get("categoria_id"),
              d.get("quantidade",0),sq,su,upf,ufl,val,d.get("preco_custo",0),pv,d.get("estoque_min",5),
-             pe,te,ue,datetime.now().isoformat()))
+             pe,te,ue,cb,datetime.now().isoformat()))
         db.commit(); return jsonify({"ok":True,"id":cur.lastrowid}),201
     except sqlite3.IntegrityError as e: return jsonify({"erro":str(e)}),400
     finally: db.close()
@@ -566,7 +600,7 @@ def criar_produto():
 @login_requerido
 @permissao_requerida("produtos")
 def atualizar_produto(pid):
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     anterior=db.execute("SELECT * FROM produtos WHERE id=?",(pid,)).fetchone()
     pv=d.get("preco_venda"); pv=None if pv in ("",None) else float(pv)
     sq=d.get("sub_qtd_por_un"); sq=None if sq in ("",None,0,"0") else float(sq)
@@ -577,13 +611,18 @@ def atualizar_produto(pid):
     pe=d.get("preco_embalagem"); pe=None if pe in ("",None,0,"0") else float(pe)
     te=d.get("tipo_embalagem") or None
     ue=d.get("unid_embalagem"); ue=None if ue in ("",None,0,"0") else int(ue)
+    cb=d.get("codigo_barras") or None
+    if cb:
+        existe=db.execute("SELECT nome FROM produtos WHERE codigo_barras=? AND id!=?",(cb,pid)).fetchone()
+        if existe:
+            db.close(); return jsonify({"erro":f"Código de barras já usado no produto \"{existe['nome']}\""}),400
     db.execute("""UPDATE produtos SET nome=?,codigo=?,unidade=?,categoria_id=?,
                   sub_qtd_por_un=?,sub_unidade=?,unid_por_fardo=?,unid_fardo_label=?,validade=?,
                   preco_custo=?,preco_venda=?,estoque_min=?,
-                  preco_embalagem=?,tipo_embalagem=?,unid_embalagem=? WHERE id=?""",
+                  preco_embalagem=?,tipo_embalagem=?,unid_embalagem=?,codigo_barras=? WHERE id=?""",
                (d["nome"],d["codigo"],d.get("unidade","un"),d.get("categoria_id"),
                 sq,su,upf,ufl,val,d.get("preco_custo",0),pv,d.get("estoque_min",5),
-                pe,te,ue,pid))
+                pe,te,ue,cb,pid))
     if anterior:
         mudancas=[]
         novo_custo=d.get("preco_custo",0)
@@ -599,6 +638,22 @@ def atualizar_produto(pid):
             registrar_auditoria(db,"editou","produto",pid,d["nome"],"; ".join(mudancas))
     db.commit(); db.close(); return jsonify({"ok":True})
 
+@app.route("/api/produtos/<int:pid>/ativo",methods=["PUT"])
+@login_requerido
+@permissao_requerida("produtos")
+def alternar_ativo_produto(pid):
+    d=request.get_json(silent=True) or {}
+    db=get_db()
+    produto=db.execute("SELECT nome, ativo FROM produtos WHERE id=?",(pid,)).fetchone()
+    if not produto:
+        db.close(); return jsonify({"erro":"Produto não encontrado"}),404
+    novo_ativo = 1 if d.get("ativo", not produto["ativo"]) else 0
+    db.execute("UPDATE produtos SET ativo=? WHERE id=?",(novo_ativo,pid))
+    registrar_auditoria(db,"ativou" if novo_ativo else "desativou","produto",pid,produto["nome"],
+                         "Produto reativado" if novo_ativo else "Produto desativado (fora de uso temporariamente)")
+    db.commit(); db.close()
+    return jsonify({"ok":True,"ativo":bool(novo_ativo)})
+
 @app.route("/api/produtos/<int:pid>",methods=["DELETE"])
 @login_requerido
 @permissao_requerida("produtos")
@@ -606,12 +661,19 @@ def deletar_produto(pid):
     db=get_db()
     try:
         produto=db.execute("SELECT nome FROM produtos WHERE id=?",(pid,)).fetchone()
-        # Remove movimentações e ingredientes de ficha vinculados antes de excluir o produto
-        db.execute("DELETE FROM movimentacoes WHERE produto_id=?",(pid,))
-        db.execute("DELETE FROM ficha_ingredientes WHERE produto_id=?",(pid,))
+        if not produto:
+            return jsonify({"erro":"Produto não encontrado"}),404
+        # Exclusão física só é permitida se não houver histórico vinculado
+        # (movimentações ou uso em fichas de custo). Isso evita apagar dados
+        # de auditoria/custeio por engano; para tirar um produto de uso sem
+        # perder histórico, use o botão de ativar/desativar.
+        tem_mov = db.execute("SELECT 1 FROM movimentacoes WHERE produto_id=? LIMIT 1",(pid,)).fetchone()
+        tem_ficha = db.execute("SELECT 1 FROM ficha_ingredientes WHERE produto_id=? LIMIT 1",(pid,)).fetchone()
+        if tem_mov or tem_ficha:
+            return jsonify({"erro":"Este produto tem histórico de movimentações ou é usado em fichas de custo. "
+                                    "Para não perder esses dados, desative o produto em vez de excluí-lo."}),400
         db.execute("DELETE FROM produtos WHERE id=?",(pid,))
-        if produto:
-            registrar_auditoria(db,"excluiu","produto",pid,produto["nome"])
+        registrar_auditoria(db,"excluiu","produto",pid,produto["nome"])
         db.commit()
         return jsonify({"ok":True})
     except Exception as e:
@@ -636,7 +698,7 @@ def listar_movimentacoes():
 @app.route("/api/movimentacoes",methods=["POST"])
 @login_requerido
 def registrar_movimentacao():
-    d=request.json
+    d=request.get_json(silent=True) or {}
     pid=d.get("produto_id")
     tipo=d.get("tipo")
     if not pid or not tipo:
@@ -652,13 +714,23 @@ def registrar_movimentacao():
     try:
         p=db.execute("SELECT quantidade, validade FROM produtos WHERE id=?",(pid,)).fetchone()
         if not p: return jsonify({"erro":"Produto não encontrado"}),404
-        nova=p["quantidade"]
-        if   tipo=="entrada": nova+=qtd
+
+        # Atualização atômica direto no SQL (em vez de ler, calcular em Python e
+        # gravar de volta) para evitar "lost update" quando duas requisições
+        # mexem no mesmo produto ao mesmo tempo (ex: dois caixas simultâneos).
+        if tipo=="entrada":
+            db.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE id=?",(qtd,pid))
         elif tipo=="saida":
-            if nova<qtd: return jsonify({"erro":"Estoque insuficiente"}),400
-            nova-=qtd
-        elif tipo=="ajuste": nova=qtd
-        db.execute("UPDATE produtos SET quantidade=? WHERE id=?",(nova,pid))
+            cur=db.execute(
+                "UPDATE produtos SET quantidade = quantidade - ? WHERE id=? AND quantidade >= ?",
+                (qtd,pid,qtd)
+            )
+            if cur.rowcount==0:
+                return jsonify({"erro":"Estoque insuficiente"}),400
+        elif tipo=="ajuste":
+            db.execute("UPDATE produtos SET quantidade=? WHERE id=?",(qtd,pid))
+
+        nova=db.execute("SELECT quantidade FROM produtos WHERE id=?",(pid,)).fetchone()["quantidade"]
 
         # Em entradas com validade informada, atualiza a validade do produto
         # se for mais próxima (menor) que a atual cadastrada, ou se ainda não houver validade
@@ -678,13 +750,13 @@ def registrar_movimentacao():
 def dashboard():
     db=get_db()
     eh_admin = session.get("perfil") == "admin"
-    tot=db.execute("SELECT COUNT(*) FROM produtos").fetchone()[0]
-    cri=db.execute("SELECT COUNT(*) FROM produtos WHERE quantidade<=estoque_min").fetchone()[0]
-    zer=db.execute("SELECT COUNT(*) FROM produtos WHERE quantidade=0").fetchone()[0]
+    tot=db.execute("SELECT COUNT(*) FROM produtos WHERE ativo=1").fetchone()[0]
+    cri=db.execute("SELECT COUNT(*) FROM produtos WHERE ativo=1 AND quantidade<=estoque_min").fetchone()[0]
+    zer=db.execute("SELECT COUNT(*) FROM produtos WHERE ativo=1 AND quantidade=0").fetchone()[0]
     valor_total = None
     if eh_admin:
         valor_total = db.execute(
-            "SELECT COALESCE(SUM(quantidade * preco_custo), 0) FROM produtos"
+            "SELECT COALESCE(SUM(quantidade * preco_custo), 0) FROM produtos WHERE ativo=1"
         ).fetchone()[0]
         valor_total = round(valor_total, 2)
     rows=db.execute("""
@@ -692,7 +764,7 @@ def dashboard():
                p.sub_qtd_por_un,p.sub_unidade,
                COALESCE(c.nome,'Sem categoria') AS categoria
         FROM produtos p LEFT JOIN categorias c ON c.id=p.categoria_id
-        WHERE p.quantidade<=p.estoque_min ORDER BY categoria,p.quantidade""").fetchall()
+        WHERE p.ativo=1 AND p.quantidade<=p.estoque_min ORDER BY categoria,p.quantidade""").fetchall()
     grupos={}
     for r in rows:
         cat=r["categoria"]
@@ -707,7 +779,7 @@ def dashboard():
         SELECT p.nome, p.codigo, p.quantidade, p.unidade, p.validade,
                COALESCE(c.nome,'Sem categoria') AS categoria
         FROM produtos p LEFT JOIN categorias c ON c.id=p.categoria_id
-        WHERE p.validade IS NOT NULL AND p.validade != ''
+        WHERE p.ativo=1 AND p.validade IS NOT NULL AND p.validade != ''
         ORDER BY p.validade ASC
     """).fetchall()
 
@@ -747,7 +819,7 @@ def listagem_pdf():
                COALESCE(c.nome,'Sem categoria') AS categoria
         FROM produtos p
         LEFT JOIN categorias c ON c.id=p.categoria_id
-        WHERE 1=1
+        WHERE p.ativo=1
     """
     params = []
     if filtro_cat:
@@ -858,7 +930,7 @@ def listar_fichas():
 @login_requerido
 @permissao_requerida("fichas")
 def criar_ficha():
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     try:
         pv=d.get("preco_venda"); pv=None if pv in ("",None) else float(pv)
         cur=db.execute("INSERT INTO fichas (nome,categoria,rendimento,preco_venda,observacao,criado_em) VALUES (?,?,?,?,?,?)",
@@ -877,7 +949,7 @@ def criar_ficha():
 @login_requerido
 @permissao_requerida("fichas")
 def atualizar_ficha(fid):
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     try:
         pv=d.get("preco_venda"); pv=None if pv in ("",None) else float(pv)
         anterior=db.execute("SELECT nome,categoria,rendimento,preco_venda FROM fichas WHERE id=?",(fid,)).fetchone()
@@ -953,7 +1025,7 @@ def listar_custos_fixos():
 @login_requerido
 @permissao_requerida("fichas")
 def criar_custo_fixo():
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     try:
         cur=db.execute("INSERT INTO custos_fixos (nome,categoria,valor,atualizado_em) VALUES (?,?,?,?)",
                         (d["nome"], d.get("categoria","Geral"), float(d.get("valor",0)), datetime.now().isoformat()))
@@ -967,7 +1039,7 @@ def criar_custo_fixo():
 @login_requerido
 @permissao_requerida("fichas")
 def atualizar_custo_fixo(cid):
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     db.execute("UPDATE custos_fixos SET nome=?,categoria=?,valor=?,atualizado_em=? WHERE id=?",
                (d["nome"], d.get("categoria","Geral"), float(d.get("valor",0)), datetime.now().isoformat(), cid))
     db.commit(); db.close()
@@ -996,7 +1068,7 @@ def deletar_custo_fixo(cid):
 @login_requerido
 @permissao_requerida("fichas")
 def vincular_custo_fixo(fid):
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     try:
         db.execute("INSERT OR IGNORE INTO ficha_custos_fixos (ficha_id,custo_fixo_id) VALUES (?,?)",
                    (fid, d["custo_fixo_id"]))
@@ -1031,7 +1103,7 @@ def listar_custos_fixos_globais():
 @login_requerido
 @permissao_requerida("fichas")
 def criar_custo_fixo_global():
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     try:
         cur=db.execute("INSERT INTO custos_fixos_globais (nome,percentual,ativo,atualizado_em) VALUES (?,?,?,?)",
                         (d["nome"], float(d.get("percentual",0)), 1 if d.get("ativo",True) else 0, datetime.now().isoformat()))
@@ -1045,7 +1117,7 @@ def criar_custo_fixo_global():
 @login_requerido
 @permissao_requerida("fichas")
 def atualizar_custo_fixo_global(gid):
-    d=request.json; db=get_db()
+    d=request.get_json(silent=True) or {}; db=get_db()
     db.execute("UPDATE custos_fixos_globais SET nome=?,percentual=?,ativo=?,atualizado_em=? WHERE id=?",
                (d["nome"], float(d.get("percentual",0)), 1 if d.get("ativo",True) else 0, datetime.now().isoformat(), gid))
     db.commit(); db.close()
@@ -1146,7 +1218,7 @@ def listar_fornecedores():
 @login_requerido
 @permissao_requerida("produtos")
 def criar_fornecedor():
-    d = request.json
+    d = request.get_json(silent=True) or {}
     db = get_db()
     try:
         cur = db.execute(
@@ -1163,7 +1235,7 @@ def criar_fornecedor():
 @login_requerido
 @permissao_requerida("produtos")
 def atualizar_fornecedor(fid):
-    d = request.json
+    d = request.get_json(silent=True) or {}
     db = get_db()
     db.execute(
         "UPDATE fornecedores SET nome=?, contato=?, observacao=? WHERE id=?",
@@ -1230,7 +1302,7 @@ def listar_fornecedores_do_produto(pid):
 @login_requerido
 @permissao_requerida("produtos")
 def vincular_fornecedor(pid):
-    d = request.json
+    d = request.get_json(silent=True) or {}
     db = get_db()
     try:
         fornecedor_id = d["fornecedor_id"]
@@ -1278,7 +1350,7 @@ def sugestao_lista_compras():
                COALESCE(c.nome,'Sem categoria') AS categoria
         FROM produtos p
         LEFT JOIN categorias c ON c.id = p.categoria_id
-        WHERE p.quantidade <= p.estoque_min
+        WHERE p.ativo=1 AND p.quantidade <= p.estoque_min
         ORDER BY c.nome, p.nome
     """).fetchall()
 
@@ -1316,7 +1388,7 @@ def produtos_para_inventario():
                COALESCE(c.nome,'Sem categoria') AS categoria
         FROM produtos p
         LEFT JOIN categorias c ON c.id = p.categoria_id
-        WHERE 1=1
+        WHERE p.ativo=1
     """
     params = []
     if filtro_cat:
@@ -1353,7 +1425,7 @@ def listar_inventarios():
 @login_requerido
 @permissao_requerida("produtos")
 def criar_inventario():
-    d = request.json
+    d = request.get_json(silent=True) or {}
     categoria = d.get("categoria") or None
     titulo = d.get("titulo") or ("Inventário — " + (categoria or "Geral"))
     db = get_db()
@@ -1368,10 +1440,11 @@ def criar_inventario():
                COALESCE(c.nome,'Sem categoria') AS categoria
         FROM produtos p
         LEFT JOIN categorias c ON c.id = p.categoria_id
+        WHERE p.ativo=1
     """
     params = []
     if categoria:
-        query += " WHERE LOWER(c.nome) = LOWER(?)"
+        query += " AND LOWER(c.nome) = LOWER(?)"
         params.append(categoria)
     query += " ORDER BY c.nome, p.nome"
     prods = db.execute(query, params).fetchall()
@@ -1405,15 +1478,6 @@ def obter_inventario(inv_id):
         FROM inventario_itens ii
         JOIN produtos p ON p.id = ii.produto_id
         LEFT JOIN categorias c ON c.id = p.categoria_id
-        ORDER BY categoria, p.nome
-    """, ).fetchall()
-    # Filtrar apenas itens deste inventário
-    itens = db.execute("""
-        SELECT ii.*, p.nome, p.codigo, p.unidade, p.unid_por_fardo, p.unid_fardo_label,
-               COALESCE(c.nome,'Sem categoria') AS categoria
-        FROM inventario_itens ii
-        JOIN produtos p ON p.id = ii.produto_id
-        LEFT JOIN categorias c ON c.id = p.categoria_id
         WHERE ii.inventario_id=?
         ORDER BY categoria, p.nome
     """, (inv_id,)).fetchall()
@@ -1426,7 +1490,7 @@ def obter_inventario(inv_id):
 @permissao_requerida("produtos")
 def salvar_itens_inventario(inv_id):
     """Salva contagens parciais sem finalizar."""
-    d = request.json
+    d = request.get_json(silent=True) or {}
     itens = d.get("itens", [])
     db = get_db()
     inv = db.execute("SELECT status FROM inventarios WHERE id=?", (inv_id,)).fetchone()
@@ -1506,7 +1570,7 @@ def cancelar_inventario(inv_id):
 @permissao_requerida("produtos")
 def aplicar_contagem_inventario():
     """Mantido para compatibilidade com a contagem rápida existente."""
-    d = request.json
+    d = request.get_json(silent=True) or {}
     itens = d.get("itens", [])
     if not itens:
         return jsonify({"erro": "Nenhum item informado"}), 400
@@ -1653,7 +1717,7 @@ def obter_fechamento(data):
 def salvar_fechamento():
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     data = d.get("data")
     if not data:
         return jsonify({"erro": "Data é obrigatória"}), 400
@@ -1773,7 +1837,7 @@ def listar_contas_pagar():
 def editar_conta_pagar(cid):
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     if not d.get("descricao") or not d.get("valor") or not d.get("vencimento"):
         return jsonify({"erro": "Descrição, valor e vencimento são obrigatórios"}), 400
     db = get_db()
@@ -1822,7 +1886,7 @@ def resumo_categorias_pagar():
 def criar_conta_pagar():
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     if not d.get("descricao") or not d.get("valor") or not d.get("vencimento"):
         return jsonify({"erro": "Descrição, valor e vencimento são obrigatórios"}), 400
     db = get_db()
@@ -1886,7 +1950,7 @@ def listar_contas_receber():
 def criar_conta_receber():
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     if not d.get("descricao") or not d.get("valor") or not d.get("vencimento"):
         return jsonify({"erro": "Descrição, valor e vencimento são obrigatórios"}), 400
     db = get_db()
@@ -1941,7 +2005,7 @@ def categorias_pagar():
 def criar_categoria_pagar():
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     nome = (d.get("nome") or "").strip()
     if not nome:
         return jsonify({"erro": "Nome obrigatório"}), 400
@@ -1962,7 +2026,7 @@ def criar_categoria_pagar():
 def renomear_categoria_pagar(cid):
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     nome = (d.get("nome") or "").strip()
     if not nome:
         return jsonify({"erro": "Nome obrigatório"}), 400
@@ -2026,7 +2090,7 @@ def listar_precos_pao():
 def salvar_preco_pao():
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     if not d.get("preco") or not d.get("vigente_de"):
         return jsonify({"erro": "Preço e data de vigência são obrigatórios"}), 400
     db = get_db()
@@ -2150,7 +2214,7 @@ def paes_lancar_contas():
     """Lança dias de pães selecionados em Contas a Pagar como 'em aberto'."""
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     dias = d.get("dias", [])  # lista de {data, valor, preco, paes_qtd}
     if not dias:
         return jsonify({"erro": "Nenhum dia informado"}), 400
@@ -2194,7 +2258,7 @@ def registrar_pagamento_paes():
     """Marca contas a pagar de pães como pagas (ou cria já paga se não existir)."""
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     datas = d.get("datas", [])
     valor = float(d.get("valor", 0))
     if not datas or not valor:
@@ -2250,7 +2314,7 @@ def listar_massa_precos():
 def salvar_massa_preco():
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     vigente_de = d.get("vigente_de")
     if not vigente_de:
         return jsonify({"erro": "Data de vigência obrigatória"}), 400
@@ -2326,7 +2390,7 @@ def listar_massa_entregas():
 def registrar_massa_entrega():
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     if not d.get("data"):
         return jsonify({"erro": "Data obrigatória"}), 400
     agora = datetime.now().isoformat()
@@ -2367,7 +2431,7 @@ def registrar_massa_entrega():
 def atualizar_massa_entrega(eid):
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     db = get_db()
     db.execute(
         """UPDATE fin_massa_entregas SET
@@ -2401,7 +2465,7 @@ def deletar_massa_entrega(eid):
 def registrar_pagamento_massa():
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     ids = d.get("ids", [])
     if not ids:
         return jsonify({"erro": "Selecione ao menos uma entrega"}), 400
@@ -2465,7 +2529,7 @@ def obter_meta_mensal():
 def salvar_meta_mensal():
     err = somente_admin()
     if err: return err
-    d = request.json
+    d = request.get_json(silent=True) or {}
     mes = d.get("mes")
     meta_valor = d.get("meta_valor")
     if not mes or not meta_valor:
@@ -2518,53 +2582,68 @@ def comparativo_fds():
 
     NOME_DIA = {5: "Sexta", 6: "Sábado", 0: "Domingo"}
 
+    def _ancora_fds(dt, dia_semana):
+        """Retorna a data da sexta-feira do fim de semana ao qual esse dia pertence.
+        Ancorar pela sexta (em vez de dividir o mês em blocos fixos de 7 dias) evita
+        que sábado/domingo de um mesmo fim de semana caiam em grupos diferentes
+        quando a sexta cai perto da virada de um bloco (ex: dia 7, 14, 21, 28)."""
+        if dia_semana == 5:    # sexta
+            return dt
+        elif dia_semana == 6:  # sábado
+            return dt - timedelta(days=1)
+        else:                  # domingo (0)
+            return dt - timedelta(days=2)
+
     if modo == "mes":
-        # Agrupar por semana do mês
+        # Agrupar por fim de semana real (ancorado na sexta-feira)
         from datetime import date
-        fds_grupos = {}
+        grupos_por_ancora = {}
         for r in rows:
             dt = date.fromisoformat(r["data"])
-            # Número da semana dentro do mês (1-5)
-            semana = (dt.day - 1) // 7 + 1
-            key = f"FDS {semana}"
-            if key not in fds_grupos:
-                fds_grupos[key] = {"label": key, "dias": []}
+            ancora = _ancora_fds(dt, r["dia_semana"])
+            if ancora not in grupos_por_ancora:
+                grupos_por_ancora[ancora] = {"dias": []}
             venda = r["credito"] + r["debito"] + r["voucher"] + r["pix"] + r["dinheiro"]
-            fds_grupos[key]["dias"].append({
+            grupos_por_ancora[ancora]["dias"].append({
                 "data": r["data"],
                 "dia_nome": NOME_DIA.get(r["dia_semana"], ""),
                 "venda": venda,
                 "delivery_val": r["delivery_val"],
                 "delivery_qtd": r["delivery_qtd"],
             })
-        # Calcular totais por FDS
+        # Numerar os FDS em ordem cronológica dentro do mês (FDS 1 = primeiro fim de semana, etc.)
         resultado = []
-        for key, g in fds_grupos.items():
+        for i, ancora in enumerate(sorted(grupos_por_ancora.keys()), start=1):
+            g = grupos_por_ancora[ancora]
             total = sum(d["venda"] for d in g["dias"])
-            g["total"] = total
-            resultado.append(g)
+            resultado.append({"label": f"FDS {i}", "dias": g["dias"], "total": total})
         return jsonify({"modo": "mes", "mes": mes, "fds": resultado})
 
     else:
-        # Agrupar por mês → semanas dentro de cada mês
+        # Agrupar por mês → dentro de cada mês, por fim de semana real (ancorado na sexta)
         from datetime import date
-        meses_grupos = {}
+        meses_ancoras = {}
         for r in rows:
             dt = date.fromisoformat(r["data"])
             mes_ref = r["mes_ref"]
-            semana = (dt.day - 1) // 7 + 1
-            if mes_ref not in meses_grupos:
-                meses_grupos[mes_ref] = {}
-            key = f"FDS {semana}"
-            if key not in meses_grupos[mes_ref]:
-                meses_grupos[mes_ref][key] = {"label": key, "total": 0, "dias": []}
+            ancora = _ancora_fds(dt, r["dia_semana"])
+            meses_ancoras.setdefault(mes_ref, {}).setdefault(ancora, {"dias": []})
             venda = r["credito"] + r["debito"] + r["voucher"] + r["pix"] + r["dinheiro"]
-            meses_grupos[mes_ref][key]["total"] += venda
-            meses_grupos[mes_ref][key]["dias"].append({
+            meses_ancoras[mes_ref][ancora]["dias"].append({
                 "data": r["data"],
                 "dia_nome": NOME_DIA.get(r["dia_semana"], ""),
                 "venda": venda,
             })
+        # Dentro de cada mês, numera os FDS em ordem cronológica para poder
+        # comparar "FDS 1 de um mês" com "FDS 1 de outro mês" de forma consistente.
+        meses_grupos = {}
+        for mes_ref, ancoras in meses_ancoras.items():
+            meses_grupos[mes_ref] = {}
+            for i, ancora in enumerate(sorted(ancoras.keys()), start=1):
+                dias = ancoras[ancora]["dias"]
+                total = sum(d["venda"] for d in dias)
+                key = f"FDS {i}"
+                meses_grupos[mes_ref][key] = {"label": key, "total": total, "dias": dias}
         # Organizar por semana para comparar entre meses
         semanas_unicas = sorted(set(
             s for m in meses_grupos.values() for s in m.keys()
@@ -2583,6 +2662,7 @@ def comparativo_fds():
         return jsonify({"modo": "anual", "semanas": resultado})
 
 
+@app.route("/api/fin/alertas-vencimento", methods=["GET"])
 @login_requerido
 def alertas_vencimento():
     """Retorna contas a pagar em aberto vencendo nos próximos 7 dias ou já vencidas."""
@@ -2740,15 +2820,9 @@ def relatorio_mensal():
 
 
 if __name__=="__main__":
-    # Limpa arquivos de lock órfãos de execuções anteriores que travaram
-    for ext in ["-wal", "-shm", "-journal"]:
-        lock_file = DB_PATH + ext
-        if os.path.exists(lock_file):
-            try:
-                os.remove(lock_file)
-                print(f"🧹 Removido arquivo de lock: {os.path.basename(lock_file)}")
-            except Exception as _e:
-                print(f"⚠️  Não foi possível remover {lock_file}: {_e}")
+    # NUNCA apagar os arquivos -wal/-shm manualmente: em modo WAL eles guardam
+    # transações confirmadas que ainda não foram gravadas no .db principal.
+    # O próprio SQLite recupera esses arquivos automaticamente ao abrir a conexão.
     init_db()
     cfg=load_config()
     # Backup automático diário (na inicialização, se ainda não foi feito hoje)
