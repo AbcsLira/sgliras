@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S.G. Lira's — Login</title>
+
+<style>
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/static/fonts/Inter-Regular.woff') format('woff');
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('/static/fonts/Inter-SemiBold.woff') format('woff');
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('/static/fonts/Inter-Bold.woff') format('woff');
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 800;
+    font-display: swap;
+    src: url('/static/fonts/Inter-ExtraBold.woff') format('woff');
+  }
+
+  :root {
+    --bg: #080b12;
+    --bg-2: #101521;
+    --surface: rgba(22, 27, 39, .88);
+    --surface-2: rgba(10, 14, 22, .72);
+    --border: rgba(148, 163, 184, .18);
+    --border-focus: rgba(79, 142, 247, .8);
+    --accent: #4f8ef7;
+    --accent-2: #286ff0;
+    --danger: #f76e6e;
+    --text: #eef2f8;
+    --muted: #8993a8;
+    --red: #ff4d5a;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    background:
+      radial-gradient(circle at 50% 45%, rgba(38, 54, 84, .18), transparent 34%),
+      linear-gradient(135deg, var(--bg), var(--bg-2));
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Brilhos decorativos discretos */
+  body::before,
+  body::after {
+    content: "";
+    position: absolute;
+    width: 360px;
+    height: 170px;
+    border: 1px solid rgba(255, 77, 90, .35);
+    border-radius: 50%;
+    transform: rotate(-34deg);
+    filter: blur(.2px);
+    pointer-events: none;
+  }
+
+  body::before {
+    top: -100px;
+    left: -130px;
+    box-shadow: 0 0 80px rgba(255, 52, 67, .08);
+  }
+
+  body::after {
+    right: -150px;
+    bottom: -100px;
+    transform: rotate(-34deg);
+    box-shadow: 0 0 90px rgba(255, 52, 67, .08);
+  }
+
+  .box {
+    width: min(92vw, 430px);
+    padding: 42px;
+    position: relative;
+    z-index: 1;
+    border: 2px solid transparent;
+    border-radius: 18px;
+    background:
+      linear-gradient(var(--surface), var(--surface)) padding-box,
+      linear-gradient(135deg, rgba(255, 77, 90, .9), rgba(255, 77, 90, .12) 45%, rgba(255, 77, 90, .12) 55%, rgba(255, 77, 90, .9)) border-box;
+    box-shadow:
+      0 30px 80px rgba(0, 0, 0, .45),
+      0 0 70px rgba(37, 86, 160, .08);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    animation: cardIn .55s ease-out;
+  }
+
+  .logo {
+    text-align: center;
+    font-size: 31px;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: -1.2px;
+    margin-bottom: 14px;
+  }
+
+  .logo .l1 {
+    color: #fff;
+  }
+
+  .logo .l2 {
+    color: var(--red);
+  }
+
+  .logo-line {
+    width: 92px;
+    height: 3px;
+    margin: 0 auto 18px;
+    border-radius: 99px;
+    background: var(--red);
+    box-shadow: 0 0 18px rgba(255, 77, 90, .25);
+  }
+
+  .welcome {
+    color: var(--text);
+    text-align: center;
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .sub {
+    color: var(--muted);
+    text-align: center;
+    font-size: 13px;
+    margin-bottom: 32px;
+  }
+
+  .field {
+    position: relative;
+    margin-bottom: 18px;
+  }
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #b7c0d1;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .icon {
+    width: 15px;
+    height: 15px;
+    color: #aab5c9;
+    flex: 0 0 15px;
+  }
+
+  input {
+    width: 100%;
+    height: 50px;
+    padding: 0 14px;
+    background: var(--surface-2);
+    border: 1px solid rgba(148, 163, 184, .24);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s, background .2s;
+  }
+
+  input::placeholder {
+    color: #687287;
+  }
+
+  input:hover {
+    border-color: rgba(148, 163, 184, .35);
+  }
+
+  input:focus {
+    background: rgba(8, 12, 19, .82);
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(79, 142, 247, .10);
+  }
+
+  .password-wrap {
+    position: relative;
+  }
+
+  .password-wrap input {
+    padding-right: 48px;
+  }
+
+  .toggle-password {
+    position: absolute;
+    right: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    color: #8995aa;
+    border: 0;
+    cursor: pointer;
+  }
+
+  .toggle-password:hover {
+    color: #dbe4f2;
+    opacity: 1;
+    transform: translateY(-50%);
+    box-shadow: none;
+  }
+
+  button[type="submit"] {
+    width: 100%;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 10px 28px rgba(42, 111, 240, .18);
+    transition: transform .2s, box-shadow .2s, filter .2s;
+  }
+
+  button[type="submit"]:hover {
+    opacity: 1;
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+    box-shadow: 0 13px 32px rgba(42, 111, 240, .28);
+  }
+
+  button[type="submit"]:active {
+    transform: translateY(0);
+  }
+
+  button[type="submit"]:disabled {
+    cursor: wait;
+    opacity: .7;
+    transform: none;
+  }
+
+  .arrow {
+    font-size: 18px;
+    line-height: 1;
+    transition: transform .2s;
+  }
+
+  button[type="submit"]:hover .arrow {
+    transform: translateX(3px);
+  }
+
+  .erro {
+    background: rgba(247, 110, 110, .10);
+    border: 1px solid rgba(247, 110, 110, .28);
+    color: var(--danger);
+    border-radius: 9px;
+    padding: 11px 12px;
+    font-size: 12px;
+    margin-top: 14px;
+    display: none;
+  }
+
+  .erro.show {
+    display: block;
+    animation: shake .25s ease-in-out;
+  }
+
+  .footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 28px;
+    color: #687287;
+    font-size: 10px;
+    text-align: center;
+  }
+
+  .footer::before,
+  .footer::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: rgba(148, 163, 184, .14);
+  }
+
+  .footer-lock {
+    color: #7f8ba1;
+    font-size: 13px;
+  }
+
+  @keyframes cardIn {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  @media (max-width: 520px) {
+    .box {
+      padding: 34px 24px;
+    }
+
+    .logo {
+      font-size: 28px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      transition-duration: .01ms !important;
+    }
+  }
+</style>
+</head>
+
+<body>
+  <main class="box">
+    <div class="logo">
+      <span class="l1">S.G. </span><span class="l2">Lira's</span>
+    </div>
+
+    <div class="logo-line"></div>
+
+    <div class="welcome">Bem-vindo de volta!</div>
+    <div class="sub">Faça login para continuar</div>
+
+    <form id="loginForm" novalidate>
+      <div class="field">
+        <label for="usr">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5"></circle>
+            <path d="M5.5 20c.7-3.5 2.9-5.2 6.5-5.2s5.8 1.7 6.5 5.2"></path>
+          </svg>
+          Usuário
+        </label>
+        <input id="usr" type="text" placeholder="seu.usuario" autocomplete="username">
+      </div>
+
+      <div class="field">
+        <label for="pwd">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <rect x="5" y="10" width="14" height="10" rx="2"></rect>
+            <path d="M8 10V7.5a4 4 0 0 1 8 0V10"></path>
+          </svg>
+          Senha
+        </label>
+
+        <div class="password-wrap">
+          <input id="pwd" type="password" placeholder="••••••••" autocomplete="current-password">
+          <button class="toggle-password" type="button" id="togglePassword" aria-label="Mostrar senha" title="Mostrar senha">
+            <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+              <circle cx="12" cy="12" r="2.5"></circle>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" id="loginButton">
+        <span id="buttonText">Entrar</span>
+        <span class="arrow">→</span>
+      </button>
+
+      <div class="erro" id="erro" role="alert"></div>
+    </form>
+
+    <div class="footer">
+      <span class="footer-lock">♙</span>
+      <span>Acesso restrito • S.G. Lira's</span>
+    </div>
+  </main>
+
+<script>
+  const form = document.getElementById('loginForm');
+  const usr = document.getElementById('usr');
+  const pwd = document.getElementById('pwd');
+  const err = document.getElementById('erro');
+  const button = document.getElementById('loginButton');
+  const buttonText = document.getElementById('buttonText');
+  const togglePassword = document.getElementById('togglePassword');
+  const eyeIcon = document.getElementById('eyeIcon');
+
+  function mostrarErro(message) {
+    err.textContent = message;
+    err.classList.add('show');
+  }
+
+  function limparErro() {
+    err.textContent = '';
+    err.classList.remove('show');
+  }
+
+  togglePassword.addEventListener('click', () => {
+    const mostrando = pwd.type === 'text';
+    pwd.type = mostrando ? 'password' : 'text';
+    togglePassword.setAttribute('aria-label', mostrando ? 'Mostrar senha' : 'Ocultar senha');
+    togglePassword.setAttribute('title', mostrando ? 'Mostrar senha' : 'Ocultar senha');
+
+    eyeIcon.innerHTML = mostrando
+      ? '<path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.5"></circle>'
+      : '<path d="M3 3l18 18"></path><path d="M10.6 6.2A10.6 10.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16.6 16.6 0 0 1-3.2 3.7"></path><path d="M6.3 6.8C3.8 8.5 2.5 12 2.5 12s3.5 6 9.5 6c1.3 0 2.5-.3 3.5-.8"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path>';
+  });
+
+  [usr, pwd].forEach(input => {
+    input.addEventListener('input', limparErro);
+  });
+
+  form.addEventListener('submit', entrar);
+
+  async function entrar(event) {
+    if (event) event.preventDefault();
+
+    const usuario = usr.value.trim();
+    const senha = pwd.value;
+
+    limparErro();
+
+    if (!usuario || !senha) {
+      mostrarErro('Preencha usuário e senha.');
+      return;
+    }
+
+    button.disabled = true;
+    buttonText.textContent = 'Entrando...';
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, senha })
+      });
+
+      const d = await res.json();
+
+      if (d.erro) {
+        mostrarErro(d.erro);
+        return;
+      }
+
+      window.location.href = '/';
+    } catch (error) {
+      mostrarErro('Não foi possível conectar ao servidor. Tente novamente.');
+    } finally {
+      button.disabled = false;
+      buttonText.textContent = 'Entrar';
+    }
+  }
+</script>
+</body>
+</html>
