@@ -3,8 +3,9 @@
 - No backend, use português nos nomes de novos arquivos e módulos, sem acentos
   ou espaços, preferindo `snake_case`: `estoque.py`, `financeiro_contas.py`.
 - Na interface, preserve os nomes em inglês: `index.html`, `login.html`,
-  `index.css`, `login.css`, `login.js` e os módulos em `static/js/modules/`
-  (por exemplo, `products.js`, `movements.js` e `inventory.js`).
+  `index.css`, `login.css` e `login.js`.
+- Os módulos em `static/js/modules/` usam nomes em português, como `produtos.js`,
+  `movimentacoes.js` e `inventario.js`. Preserve o nome da pasta `modules/`.
 - Preserve os nomes convencionais das ferramentas: `app.py`, `__init__.py`,
   `requirements.txt`, `README.md`, `static/`, `templates/` e `.github/workflows/`.
 - Escreva mensagens de commit em português.

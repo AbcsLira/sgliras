@@ -4,9 +4,9 @@ O comando de inicialização continua sendo `python app.py`. No Windows, os
 arquivos `iniciar.bat` e `iniciar_segundo_plano.bat` continuam usando essa entrada.
 Execute os comandos na raiz do checkout.
 
-Os módulos do backend e os testes usam nomes em português, sem acentos ou
-espaços. Na interface, os arquivos HTML, CSS e JavaScript mantêm nomes em inglês,
-como `index.html`, `login.html`, `products.js` e `movements.js`.
+Os módulos do backend, os módulos JavaScript e os testes usam nomes em português,
+sem acentos ou espaços. Os arquivos HTML, CSS e o script de login mantêm os nomes
+convencionais `index.html`, `login.html`, `index.css`, `login.css` e `login.js`.
 Os nomes convencionais das ferramentas, como `app.py`, `__init__.py`,
 `requirements.txt`, `README.md` e os diretórios `static/` e `templates/`, são
 preservados. Os arquivos de teste usam o prefixo `teste_`, compatível com o
@@ -46,8 +46,8 @@ contexto Flask (`with app.app_context():` fora de uma requisição).
 
 Os scripts são carregados na ordem declarada em `templates/index.html`.
 Continuam sendo scripts clássicos: os manipuladores usados por `onclick` e o
-estado compartilhado da interface foram preservados. `core.js` contém o estado
-comum e `shell.js`, carregado por último, chama `init()`. Não use `async`, nem
+estado compartilhado da interface foram preservados. `nucleo.js` contém o estado
+comum e `navegacao.js`, carregado por último, chama `init()`. Não use `async`, nem
 altere a ordem sem revisar as dependências. Os estilos e scripts das janelas
 de impressão continuam nos templates de impressão gerados pelo JavaScript.
 Não há etapa de build do frontend.
