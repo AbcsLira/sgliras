@@ -52,6 +52,23 @@ altere a ordem sem revisar as dependências. Os estilos e scripts das janelas
 de impressão continuam nos templates de impressão gerados pelo JavaScript.
 Não há etapa de build do frontend.
 
+As buscas locais agrupam a digitação por 150 ms. Os seletores mostram até 50
+resultados e continuam pesquisando o catálogo completo; scanners, categorias
+e abertura dos modais respondem imediatamente. A tabela de produtos oferece
+paginação de 25, 50 ou 100 linhas e preserva os filtros ao atualizar os dados.
+
+No inventário, editar uma contagem atualiza apenas sua diferença e os
+contadores, preservando foco e rolagem. Campo apagado ou quantidade inválida
+exige correção antes de salvar; zero continua sendo uma contagem válida.
+
+Contas a pagar e a receber compartilham leituras e aplicam filtros localmente.
+O cache dura até 30 segundos e é revalidado na próxima interação, na entrada
+da tela, pelo botão Atualizar ou após uma alteração. Respostas substituídas
+são descartadas. Falhas preservam os dados visíveis e oferecem nova tentativa.
+Os dados continuam sendo obtidos das APIs existentes; o cache não altera os
+registros no banco. As fontes da interface são as fontes do sistema, sem
+downloads nem arquivos locais ausentes.
+
 ## Instalação e testes
 
 ```sh
@@ -61,7 +78,7 @@ python -m venv venv
 python -m pip install -r requirements.txt
 python -m unittest discover -s testes -v
 # Opcional para rodar o sistema, necessário para verificar os testes da interface:
-node testes/estabilidade_interface.cjs
+node testes/executar_interface.cjs
 python app.py
 ```
 

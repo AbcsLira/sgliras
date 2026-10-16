@@ -94,9 +94,15 @@ function linhaDespesa(label, valor, origem){
 }
 
 // ── Alertas de vencimento ──────────────────────────────────────────────────
-async function finCarregarAlertasVencimento(){
+let finAlertasVersao=0;
+async function finCarregarAlertasVencimento({dados}={}){
+  const versao=++finAlertasVersao;
   const wrap=document.getElementById('fin-alertas-venc');
-  const alertas=await fetch('/api/fin/alertas-vencimento').then(r=>r.json());
+  const alertas=dados??await fetch('/api/fin/alertas-vencimento').then(r=>{
+    if(!r.ok) throw new Error('Não foi possível carregar os alertas.');
+    return r.json();
+  });
+  if(versao!==finAlertasVersao) return;
   if(!alertas.length){wrap.classList.add('hidden');return;}
   wrap.classList.remove('hidden');
   const vencidas=alertas.filter(a=>a.dias_restantes<0);

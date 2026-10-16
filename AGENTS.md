@@ -14,5 +14,5 @@
 - Os testes ficam em `testes/`; use `teste_*.py`, descoberto pelo padrão
   `test*.py` do unittest. Comandos na raiz do repositório:
   - `python -m unittest discover -s testes -v`
-  - `node testes/estabilidade_interface.cjs`
+  - `node testes/executar_interface.cjs`
 - Consulte `ARQUITETURA.md` para o mapa de módulos e o fluxo de desenvolvimento.

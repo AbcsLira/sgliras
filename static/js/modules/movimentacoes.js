@@ -136,6 +136,18 @@ document.querySelectorAll('.tipo-tab').forEach(btn=>{
 });
 let movCatFiltro=null;
 let movEstado=criarEstadoLote('movimentacao');
+const LIMITE_RESULTADOS_SELETOR=50;
+
+function produtoCorrespondeBusca(produto,busca){
+  return [produto.nome,produto.codigo,produto.codigo_barras]
+    .some(valor=>String(valor??'').toLowerCase().includes(busca));
+}
+
+function avisoLimiteSeletor(total){
+  return total>LIMITE_RESULTADOS_SELETOR
+    ? `<div role="status" style="padding:9px;color:var(--muted);font-size:12px">Mostrando ${LIMITE_RESULTADOS_SELETOR} de ${total}. Refine a busca.</div>`
+    : '';
+}
 
 function construirMovCatChips(){
   const el=document.getElementById('mov-cat-chips');
@@ -152,14 +164,16 @@ function setMovCat(cat){
   filtrarMovBusca();
 }
 
+const filtrarMovBuscaAoDigitar=adiarBusca(filtrarMovBusca);
 function filtrarMovBusca(){
-  const q=document.getElementById('mov-busca').value.toLowerCase();
+  filtrarMovBuscaAoDigitar.cancelar();
+  const q=document.getElementById('mov-busca').value.trim().toLowerCase();
   const lista=document.getElementById('mov-lista');
   let itens=produtos.filter(p=>p.ativo!==0);
   if(movCatFiltro) itens=itens.filter(p=>p.categoria===movCatFiltro);
-  if(q) itens=itens.filter(p=>p.nome.toLowerCase().includes(q)||p.codigo.toLowerCase().includes(q));
+  if(q) itens=itens.filter(p=>produtoCorrespondeBusca(p,q));
   if(!itens.length){lista.innerHTML='<div style="padding:9px;color:var(--muted);font-size:12px">Nenhum produto encontrado</div>';return;}
-  lista.innerHTML=itens.map(p=>`<div class="p-opt" onclick="selecionarMovProd(${p.id})">
+  lista.innerHTML=avisoLimiteSeletor(itens.length)+itens.slice(0,LIMITE_RESULTADOS_SELETOR).map(p=>`<div class="p-opt" onclick="selecionarMovProd(${p.id})">
     <div>
       <div class="pn">${p.nome}</div>
       <div class="pi">${p.codigo} · <span class="badge badge-unit">${p.unidade||'un'}</span>${p.categoria?' · <span class="badge badge-cat" style="font-size:10px">'+p.categoria+'</span>':''}</div>
@@ -359,14 +373,16 @@ function setLoteCat(cat){
   filtrarLoteBusca();
 }
 
+const filtrarLoteBuscaAoDigitar=adiarBusca(filtrarLoteBusca);
 function filtrarLoteBusca(){
-  const q=document.getElementById('lote-busca').value.toLowerCase();
+  filtrarLoteBuscaAoDigitar.cancelar();
+  const q=document.getElementById('lote-busca').value.trim().toLowerCase();
   const lista=document.getElementById('lote-lista');
   let itens=produtos.filter(p=>p.ativo!==0);
   if(loteCatFiltro) itens=itens.filter(p=>p.categoria===loteCatFiltro);
-  if(q) itens=itens.filter(p=>p.nome.toLowerCase().includes(q)||p.codigo.toLowerCase().includes(q));
+  if(q) itens=itens.filter(p=>produtoCorrespondeBusca(p,q));
   if(!itens.length){lista.innerHTML='<div style="padding:9px;color:var(--muted);font-size:12px">Nenhum produto encontrado</div>';return;}
-  lista.innerHTML=itens.map(p=>`<div class="p-opt" onclick="adicionarItemLote(${p.id})">
+  lista.innerHTML=avisoLimiteSeletor(itens.length)+itens.slice(0,LIMITE_RESULTADOS_SELETOR).map(p=>`<div class="p-opt" onclick="adicionarItemLote(${p.id})">
     <div><div class="pn">${p.nome}</div><div class="pi">${p.codigo} · <span class="badge badge-unit">${p.unidade||'un'}</span>${p.categoria?' · <span class="badge badge-cat" style="font-size:10px">'+p.categoria+'</span>':''}</div></div>
     <div class="pq">Qtd: ${p.quantidade}</div></div>`).join('');
 }

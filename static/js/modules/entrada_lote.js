@@ -38,14 +38,16 @@ function setEntradaLoteCat(cat){
   filtrarEntradaLoteBusca();
 }
 
+const filtrarEntradaLoteBuscaAoDigitar=adiarBusca(filtrarEntradaLoteBusca);
 function filtrarEntradaLoteBusca(){
-  const q=document.getElementById('entrada-lote-busca').value.toLowerCase();
+  filtrarEntradaLoteBuscaAoDigitar.cancelar();
+  const q=document.getElementById('entrada-lote-busca').value.trim().toLowerCase();
   const lista=document.getElementById('entrada-lote-lista');
   let itens=produtos;
   if(entradaLoteCatFiltro) itens=itens.filter(p=>p.categoria===entradaLoteCatFiltro);
-  if(q) itens=itens.filter(p=>p.nome.toLowerCase().includes(q)||(p.codigo||'').toLowerCase().includes(q));
+  if(q) itens=itens.filter(p=>produtoCorrespondeBusca(p,q));
   if(!itens.length){lista.innerHTML='<div style="padding:9px;color:var(--muted);font-size:12px">Nenhum produto encontrado</div>';return;}
-  lista.innerHTML=itens.map(p=>`<div class="p-opt" onclick="adicionarItemEntradaLote(${p.id})">
+  lista.innerHTML=avisoLimiteSeletor(itens.length)+itens.slice(0,LIMITE_RESULTADOS_SELETOR).map(p=>`<div class="p-opt" onclick="adicionarItemEntradaLote(${p.id})">
     <div>
       <div class="pn">${p.nome}</div>
       <div class="pi">${p.codigo} · <span class="badge badge-unit">${p.unidade||'un'}</span>${p.categoria?' · <span class="badge badge-cat" style="font-size:10px">'+p.categoria+'</span>':''}

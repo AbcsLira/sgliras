@@ -2,46 +2,178 @@
 let finFiltroStatusPagar='todos';
 let finPagarEstado=criarEstadoLote('contas-pagar');
 
-async function finCarregarContasPagar(){
-  if(!finCatsPagar.length) finCatsPagar=await fetch('/api/fin/categorias-pagar').then(r=>r.json());
-  if(!finFornecedores.length) finFornecedores=await fetch('/api/fornecedores').then(r=>r.json());
+// Uma leitura compartilhada alimenta tabela, totais e filtros. `valido` também
+// representa listas vazias; uma mutação invalida a versão antes de recarregar.
+const finLeiturasContas={};
+const finCiclosContas={pagar:0,receber:0};
+const finValidadeContas=30000;
 
-  // Salvar valores selecionados ANTES de reconstruir os selects
+function finEstadoLeitura(chave){
+  return finLeiturasContas[chave]||(finLeiturasContas[chave]={
+    valido:false,dados:[],promessa:null,controlador:null,versao:0,carregadoEm:0
+  });
+}
+
+function finExpirarContas(tipo){
+  const estado=finEstadoLeitura(tipo);
+  if(estado.valido&&Date.now()-estado.carregadoEm>=finValidadeContas)
+    finInvalidarLeituras(tipo==='pagar'?['pagar','alertasPagar']:['receber']);
+}
+
+function finInvalidarLeituras(chaves){
+  chaves.forEach(chave=>{
+    const estado=finEstadoLeitura(chave);
+    estado.versao++;
+    estado.valido=false;
+    if(estado.controlador) estado.controlador.abort();
+    estado.controlador=null;
+    estado.promessa=null;
+  });
+}
+
+function finObterLista(chave,url){
+  const estado=finEstadoLeitura(chave);
+  if(estado.valido) return Promise.resolve(estado.dados);
+  if(estado.promessa) return estado.promessa;
+  const versao=estado.versao;
+  const controlador=new AbortController();
+  estado.controlador=controlador;
+  const promessa=(async()=>{
+    const resposta=await fetch(url,{signal:controlador.signal});
+    const dados=await resposta.json();
+    if(!resposta.ok||!Array.isArray(dados)) throw new Error(dados?.erro||'Não foi possível carregar os dados.');
+    if(versao!==estado.versao){
+      const erro=new Error('Leitura substituída');
+      erro.name='AbortError';
+      throw erro;
+    }
+    estado.dados=dados;
+    estado.valido=true;
+    estado.carregadoEm=Date.now();
+    return dados;
+  })();
+  estado.promessa=promessa;
+  promessa.finally(()=>{
+    if(estado.promessa===promessa){estado.promessa=null;estado.controlador=null;}
+  }).catch(()=>{});
+  return promessa;
+}
+
+function finAvisarLeitura(tipo,mensagem='',falhou=false){
+  const pagina=document.getElementById(`page-fin-contas-${tipo}`);
+  let aviso=document.getElementById(`fin-aviso-contas-${tipo}`);
+  if(!aviso){
+    aviso=document.createElement('div');
+    aviso.id=`fin-aviso-contas-${tipo}`;
+    aviso.style.cssText='margin-bottom:12px;font-size:13px;color:var(--muted)';
+    aviso.setAttribute('aria-live','polite');
+    pagina.prepend(aviso);
+  }
+  aviso.hidden=!mensagem;
+  aviso.setAttribute('role',falhou?'alert':'status');
+  aviso.textContent=mensagem;
+  if(falhou){
+    const tentar=document.createElement('button');
+    tentar.type='button';
+    tentar.className='btn btn-ghost btn-sm';
+    tentar.style.marginLeft='8px';
+    tentar.textContent='Tentar novamente';
+    tentar.onclick=()=>tipo==='pagar'
+      ?finCarregarContasPagar({atualizar:true}):finCarregarContasReceber({atualizar:true});
+    aviso.append(tentar);
+  }
+}
+
+function finOcuparContas(tipo,ocupado){
+  document.getElementById(`page-fin-contas-${tipo}`).setAttribute('aria-busy',String(ocupado));
+}
+
+async function finMutarContas(url,opcoes){
+  try{
+    const resposta=await fetch(url,opcoes);
+    const dados=await resposta.json();
+    if(!resposta.ok||dados?.ok!==true) throw new Error(dados?.erro||'Não foi possível concluir a alteração.');
+    return dados;
+  }catch(erro){
+    toast(erro.message||'Falha de conexão. Tente novamente.','var(--danger)');
+    return null;
+  }
+}
+
+async function finPrepararCadastrosPagar(){
+  try{
+    [finCatsPagar,finFornecedores]=await Promise.all([
+      finObterLista('categoriasPagar','/api/fin/categorias-pagar'),
+      finObterLista('fornecedores','/api/fornecedores')
+    ]);
+    return true;
+  }catch(erro){
+    if(erro.name!=='AbortError') toast('Não foi possível carregar categorias e fornecedores. Tente novamente.','var(--danger)');
+    return false;
+  }
+}
+
+function finPreencherFiltrosPagar(){
   const selCat=document.getElementById('fin-filtro-cat-pagar');
   const catValorAtual=selCat.value;
   selCat.innerHTML='<option value="">Todas</option>';
   finCatsPagar.forEach(c=>selCat.add(new Option(c.nome,c.nome)));
-  // Restaurar seleção após reconstruir
-  if(catValorAtual) selCat.value=catValorAtual;
-
+  selCat.value=finCatsPagar.some(c=>c.nome===catValorAtual)?catValorAtual:'';
   const selForn=document.getElementById('fin-filtro-forn-pagar');
-  if(selForn.options.length<=1){
-    finFornecedores.forEach(f=>selForn.add(new Option(f.nome,f.id)));
-  }
+  const fornValorAtual=selForn.value;
+  selForn.innerHTML='<option value="">Todos</option>';
+  finFornecedores.forEach(f=>selForn.add(new Option(f.nome,f.id)));
+  selForn.value=finFornecedores.some(f=>String(f.id)===fornValorAtual)?fornValorAtual:'';
+}
 
-  finCarregarAlertasVencimento();
-
-  // Montar URL com filtros
-  const params=new URLSearchParams();
-  if(finFiltroStatusPagar!=='todos'&&finFiltroStatusPagar!=='vencido')
-    params.set('status',finFiltroStatusPagar);
-  else if(finFiltroStatusPagar==='vencido')
-    params.set('status','aberto');
+function finAplicarFiltrosPagar(todas){
   const catFiltro=document.getElementById('fin-filtro-cat-pagar').value;
   const mesFiltro=document.getElementById('fin-filtro-mes-pagar').value;
   const fornFiltro=document.getElementById('fin-filtro-forn-pagar').value;
-  if(catFiltro) params.set('categoria',catFiltro);
-  if(mesFiltro) params.set('mes',mesFiltro);
-  if(fornFiltro) params.set('fornecedor_id',fornFiltro);
-
-  finContasPagar=await fetch(`/api/fin/contas-pagar?${params}`).then(r=>r.json());
-  if(finFiltroStatusPagar==='vencido'){
-    const hoje=hojeLocal();
-    finContasPagar=finContasPagar.filter(c=>c.vencimento<hoje&&c.status==='aberto');
-  }
+  const hoje=hojeLocal();
+  finContasPagar=todas.filter(c=>{
+    if(catFiltro&&c.categoria!==catFiltro) return false;
+    if(fornFiltro&&String(c.fornecedor_id)!==fornFiltro) return false;
+    if(mesFiltro&&!c.vencimento.startsWith(mesFiltro)&&!(c.pago_em||'').startsWith(mesFiltro)) return false;
+    if(finFiltroStatusPagar==='vencido') return c.status==='aberto'&&c.vencimento<hoje;
+    return finFiltroStatusPagar==='todos'||c.status===finFiltroStatusPagar;
+  });
   finRenderContasPagar();
-  finAtualizarCardsPagar();
-  finCarregarResumoCategorias();
+  finAtualizarCardsPagar(todas);
+  finCarregarResumoCategorias(todas);
+}
+
+async function finCarregarContasPagar({atualizar=false}={}){
+  const chaves=['pagar','categoriasPagar','fornecedores','alertasPagar'];
+  if(atualizar) finInvalidarLeituras(chaves);
+  else finExpirarContas('pagar');
+  const ciclo=++finCiclosContas.pagar;
+  const carregando=chaves.some(chave=>!finEstadoLeitura(chave).valido);
+  finOcuparContas('pagar',carregando);
+  if(carregando) finAvisarLeitura('pagar','Atualizando contas…');
+  try{
+    const [todas,categorias,fornecedores,alertas]=await Promise.all([
+      finObterLista('pagar','/api/fin/contas-pagar'),
+      finObterLista('categoriasPagar','/api/fin/categorias-pagar'),
+      finObterLista('fornecedores','/api/fornecedores'),
+      finObterLista('alertasPagar','/api/fin/alertas-vencimento')
+    ]);
+    if(ciclo!==finCiclosContas.pagar) return false;
+    finCatsPagar=categorias;
+    finFornecedores=fornecedores;
+    finPreencherFiltrosPagar();
+    finAplicarFiltrosPagar(todas);
+    await finCarregarAlertasVencimento({dados:alertas});
+    if(ciclo!==finCiclosContas.pagar) return false;
+    finAvisarLeitura('pagar');
+    return true;
+  }catch(erro){
+    if(ciclo===finCiclosContas.pagar&&erro.name!=='AbortError')
+      finAvisarLeitura('pagar','Não foi possível atualizar as contas. Os dados exibidos foram mantidos.',true);
+    return false;
+  }finally{
+    if(ciclo===finCiclosContas.pagar) finOcuparContas('pagar',false);
+  }
 }
 
 function finLimparFiltrosPagar(){
@@ -80,18 +212,24 @@ function finRenderContasPagar(){
   </tr>`).join('');
 }
 
-async function finCarregarResumoCategorias(){
+function finCarregarResumoCategorias(todas=finEstadoLeitura('pagar').dados){
   const wrap=document.getElementById('fin-resumo-cats-wrap');
   const cont=document.getElementById('fin-resumo-cats');
   const mesFiltro=document.getElementById('fin-filtro-mes-pagar').value;
   if(!mesFiltro){wrap.classList.add('hidden');return;}
 
-  const params=new URLSearchParams();
-  params.set('mes',mesFiltro);
-  if(finFiltroStatusPagar!=='todos'&&finFiltroStatusPagar!=='vencido')
-    params.set('status',finFiltroStatusPagar);
-
-  const cats=await fetch(`/api/fin/contas-pagar/resumo-categorias?${params}`).then(r=>r.json());
+  // O resumo mantém os filtros históricos: mês/status, sem categoria/fornecedor.
+  // Em "vencidas", o resumo considera todos os status do mês, como a API fazia.
+  const grupos=new Map();
+  todas.forEach(c=>{
+    if(!c.vencimento.startsWith(mesFiltro)&&!(c.pago_em||'').startsWith(mesFiltro)) return;
+    if(!['todos','vencido'].includes(finFiltroStatusPagar)&&c.status!==finFiltroStatusPagar) return;
+    const grupo=grupos.get(c.categoria)||{categoria:c.categoria,total_valor:0,total_contas:0};
+    grupo.total_valor+=c.valor;
+    grupo.total_contas++;
+    grupos.set(c.categoria,grupo);
+  });
+  const cats=[...grupos.values()].sort((a,b)=>b.total_valor-a.total_valor||(a.categoria<b.categoria?-1:a.categoria>b.categoria?1:0));
   if(!cats.length){wrap.classList.add('hidden');return;}
 
   wrap.classList.remove('hidden');
@@ -103,8 +241,7 @@ async function finCarregarResumoCategorias(){
     </div>`).join('');
 }
 
-async function finAtualizarCardsPagar(){
-  const todas=await fetch('/api/fin/contas-pagar').then(r=>r.json());
+function finAtualizarCardsPagar(todas=finEstadoLeitura('pagar').dados){
   const hoje=hojeLocal();
   const mesFmt=hojeLocal().slice(0,7);
   const aberto=todas.filter(c=>c.status==='aberto').reduce((s,c)=>s+c.valor,0);
@@ -116,8 +253,7 @@ async function finAtualizarCardsPagar(){
 }
 
 async function finAbrirEdicaoPagar(id){
-  if(!finCatsPagar.length) finCatsPagar=await fetch('/api/fin/categorias-pagar').then(r=>r.json());
-  if(!finFornecedores.length) finFornecedores=await fetch('/api/fornecedores').then(r=>r.json());
+  if(!await finPrepararCadastrosPagar()) return;
   const c=finContasPagar.find(x=>x.id===id);
   if(!c) return;
   document.getElementById('fin-editar-id').value=id;
@@ -137,18 +273,17 @@ async function finSalvarEdicaoPagar(){
   const valor=parseFloat(document.getElementById('fin-editar-valor').value);
   const venc=document.getElementById('fin-editar-venc').value;
   if(!desc||!valor||!venc){toast('Preencha descrição, valor e vencimento','var(--danger)');return;}
-  const r=await fetch(`/api/fin/contas-pagar/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},
+  const d=await finMutarContas(`/api/fin/contas-pagar/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       descricao:desc, valor, vencimento:venc,
       categoria:document.getElementById('fin-editar-cat').value,
       fornecedor_id:document.getElementById('fin-editar-forn').value||null,
       observacao:document.getElementById('fin-editar-obs').value
     })});
-  const d=await r.json();
-  if(d.erro){toast(d.erro,'var(--danger)');return;}
+  if(!d) return;
   toast('Conta atualizada!');
   fecharModal('modal-fin-editar-pagar');
-  finCarregarContasPagar();
+  await finCarregarContasPagar({atualizar:true});
 }
 
 function finToggleGerenciarCats(){
@@ -191,55 +326,44 @@ function finCancelarRenomeacao(id){
 async function finSalvarRenomeacao(id){
   const nome=document.getElementById(`fin-cat-edit-${id}`).value.trim();
   if(!nome){toast('Nome não pode estar vazio','var(--danger)');return;}
-  const r=await fetch(`/api/fin/categorias-pagar/${id}`,{method:'PUT',
+  const d=await finMutarContas(`/api/fin/categorias-pagar/${id}`,{method:'PUT',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({nome})});
-  const d=await r.json();
-  if(d.erro){toast(d.erro,'var(--danger)');return;}
+  if(!d) return;
   toast('Categoria renomeada!');
-  finCatsPagar=[];
-  finCarregarContasPagar();
-  // Reabrir painel após reload
-  setTimeout(()=>{
+  if(await finCarregarContasPagar({atualizar:true})){
     const painel=document.getElementById('fin-cats-painel');
     if(painel.classList.contains('hidden')) finToggleGerenciarCats();
     else finRenderCategorias();
-  },300);
+  }
 }
 
 async function finCriarCategoria(){
   const nome=document.getElementById('fin-nova-cat-input').value.trim();
   if(!nome){toast('Digite um nome para a categoria','var(--danger)');return;}
-  const r=await fetch('/api/fin/categorias-pagar',{method:'POST',
+  const d=await finMutarContas('/api/fin/categorias-pagar',{method:'POST',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({nome})});
-  const d=await r.json();
-  if(d.erro){toast(d.erro,'var(--danger)');return;}
+  if(!d) return;
   toast('Categoria criada!');
   document.getElementById('fin-nova-cat-input').value='';
-  finCatsPagar=[];
-  finCarregarContasPagar();
-  setTimeout(()=>{
+  if(await finCarregarContasPagar({atualizar:true})){
     const painel=document.getElementById('fin-cats-painel');
     if(painel.classList.contains('hidden')) finToggleGerenciarCats();
     else finRenderCategorias();
-  },300);
+  }
 }
 
 async function finExcluirCategoria(id,nome){
   if(!confirm(`Excluir a categoria "${nome}"?\n\nSó é possível excluir categorias sem contas vinculadas.`)) return;
-  const r=await fetch(`/api/fin/categorias-pagar/${id}`,{method:'DELETE'});
-  const d=await r.json();
-  if(d.erro){toast(d.erro,'var(--danger)');return;}
+  const d=await finMutarContas(`/api/fin/categorias-pagar/${id}`,{method:'DELETE'});
+  if(!d) return;
   toast('Categoria excluída!');
-  finCatsPagar=[];
-  finCarregarContasPagar();
-  setTimeout(()=>finRenderCategorias(),300);
+  if(await finCarregarContasPagar({atualizar:true})) finRenderCategorias();
 }
 
 async function finAbrirModalPagar(){
   if(finPagarEstado.enviando) return;
   if(reabrirOperacaoPendente(finPagarEstado,'modal-fin-pagar')) return;
-  if(!finCatsPagar.length) finCatsPagar=await fetch('/api/fin/categorias-pagar').then(r=>r.json());
-  if(!finFornecedores.length) finFornecedores=await fetch('/api/fornecedores').then(r=>r.json());
+  if(!await finPrepararCadastrosPagar()) return;
   finPagarEstado=criarEstadoLote('contas-pagar');
   document.getElementById('fin-pagar-cat').innerHTML=finCatsPagar.map(c=>`<option>${c.nome}</option>`).join('');
   document.getElementById('fin-pagar-forn').innerHTML=`<option value="">— nenhum —</option>`
@@ -350,7 +474,7 @@ async function finSalvarContaPagar(){
   toast(d.tentativaAnterior?'Conta anterior confirmada. Alterações atuais não foram enviadas.':itens.length===1?'Conta a pagar salva!':`${itens.length} parcelas criadas com sucesso! 💳`);
   fecharModal('modal-fin-pagar');
   try{
-    await finCarregarContasPagar();
+    await finCarregarContasPagar({atualizar:true});
   } catch(erro){
     toast('Conta salva. Recarregue a página para atualizar a lista.','var(--danger)');
   }
@@ -358,31 +482,50 @@ async function finSalvarContaPagar(){
 
 async function finPagarConta(id){
   if(!confirm('Marcar essa conta como paga?')) return;
-  await fetch(`/api/fin/contas-pagar/${id}/pagar`,{method:'POST'});
+  if(!await finMutarContas(`/api/fin/contas-pagar/${id}/pagar`,{method:'POST'})) return;
   toast('Conta marcada como paga');
-  finCarregarContasPagar();
+  await finCarregarContasPagar({atualizar:true});
 }
 
 async function finDeletarContaPagar(id){
   if(!confirm('Excluir essa conta?')) return;
-  await fetch(`/api/fin/contas-pagar/${id}`,{method:'DELETE'});
+  if(!await finMutarContas(`/api/fin/contas-pagar/${id}`,{method:'DELETE'})) return;
   toast('Conta excluída');
-  finCarregarContasPagar();
+  await finCarregarContasPagar({atualizar:true});
 }
 
 // ── Contas a Receber ──────────────────────────────────────────────────────────
 let finFiltroStatusReceber='todos';
 
-async function finCarregarContasReceber(){
-  if(!finCatsReceber.length) finCatsReceber=await fetch('/api/fin/categorias-receber').then(r=>r.json());
-  const url=finFiltroStatusReceber==='todos'?'/api/fin/contas-receber':`/api/fin/contas-receber?status=${finFiltroStatusReceber==='vencido'?'aberto':finFiltroStatusReceber}`;
-  finContasReceber=await fetch(url).then(r=>r.json());
-  if(finFiltroStatusReceber==='vencido'){
+async function finCarregarContasReceber({atualizar=false}={}){
+  if(atualizar) finInvalidarLeituras(['receber','categoriasReceber']);
+  else finExpirarContas('receber');
+  const ciclo=++finCiclosContas.receber;
+  const carregando=['receber','categoriasReceber'].some(chave=>!finEstadoLeitura(chave).valido);
+  finOcuparContas('receber',carregando);
+  if(carregando) finAvisarLeitura('receber','Atualizando contas…');
+  try{
+    const [todas,categorias]=await Promise.all([
+      finObterLista('receber','/api/fin/contas-receber'),
+      finObterLista('categoriasReceber','/api/fin/categorias-receber')
+    ]);
+    if(ciclo!==finCiclosContas.receber) return false;
+    finCatsReceber=categorias;
     const hoje=hojeLocal();
-    finContasReceber=finContasReceber.filter(c=>c.vencimento<hoje&&c.status==='aberto');
+    finContasReceber=todas.filter(c=>finFiltroStatusReceber==='vencido'
+      ?c.vencimento<hoje&&c.status==='aberto'
+      :finFiltroStatusReceber==='todos'||c.status===finFiltroStatusReceber);
+    finRenderContasReceber();
+    finAtualizarCardsReceber(todas);
+    finAvisarLeitura('receber');
+    return true;
+  }catch(erro){
+    if(ciclo===finCiclosContas.receber&&erro.name!=='AbortError')
+      finAvisarLeitura('receber','Não foi possível atualizar as contas. Os dados exibidos foram mantidos.',true);
+    return false;
+  }finally{
+    if(ciclo===finCiclosContas.receber) finOcuparContas('receber',false);
   }
-  finRenderContasReceber();
-  finAtualizarCardsReceber();
 }
 
 function finFiltrarReceber(status,el){
@@ -409,8 +552,7 @@ function finRenderContasReceber(){
   </tr>`).join('');
 }
 
-async function finAtualizarCardsReceber(){
-  const todas=await fetch('/api/fin/contas-receber').then(r=>r.json());
+function finAtualizarCardsReceber(todas=finEstadoLeitura('receber').dados){
   const mesFmt=hojeLocal().slice(0,7);
   const aberto=todas.filter(c=>c.status==='aberto').reduce((s,c)=>s+c.valor,0);
   const recebido=todas.filter(c=>c.status==='recebido'&&(c.recebido_em||'').startsWith(mesFmt)).reduce((s,c)=>s+c.valor,0);
@@ -419,7 +561,12 @@ async function finAtualizarCardsReceber(){
 }
 
 async function finAbrirModalReceber(){
-  if(!finCatsReceber.length) finCatsReceber=await fetch('/api/fin/categorias-receber').then(r=>r.json());
+  try{
+    finCatsReceber=await finObterLista('categoriasReceber','/api/fin/categorias-receber');
+  }catch(erro){
+    if(erro.name!=='AbortError') toast('Não foi possível carregar as categorias. Tente novamente.','var(--danger)');
+    return;
+  }
   document.getElementById('fin-receber-cat').innerHTML=finCatsReceber.map(c=>`<option>${c}</option>`).join('');
   document.getElementById('fin-receber-desc').value='';
   document.getElementById('fin-receber-valor').value='';
@@ -433,28 +580,27 @@ async function finSalvarContaReceber(){
   const valor=parseFloat(document.getElementById('fin-receber-valor').value);
   const venc=document.getElementById('fin-receber-venc').value;
   if(!desc||!valor||!venc){toast('Preencha descrição, valor e vencimento','var(--danger)');return;}
-  const r=await fetch('/api/fin/contas-receber',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+  const d=await finMutarContas('/api/fin/contas-receber',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     descricao:desc, valor, vencimento:venc,
     categoria:document.getElementById('fin-receber-cat').value,
     observacao:document.getElementById('fin-receber-obs').value
   })});
-  const d=await r.json();
-  if(d.erro){toast(d.erro,'var(--danger)');return;}
+  if(!d) return;
   toast('Conta a receber salva!');
   fecharModal('modal-fin-receber');
-  finCarregarContasReceber();
+  await finCarregarContasReceber({atualizar:true});
 }
 
 async function finReceberConta(id){
   if(!confirm('Marcar essa conta como recebida?')) return;
-  await fetch(`/api/fin/contas-receber/${id}/receber`,{method:'POST'});
+  if(!await finMutarContas(`/api/fin/contas-receber/${id}/receber`,{method:'POST'})) return;
   toast('Conta marcada como recebida');
-  finCarregarContasReceber();
+  await finCarregarContasReceber({atualizar:true});
 }
 
 async function finDeletarContaReceber(id){
   if(!confirm('Excluir essa conta?')) return;
-  await fetch(`/api/fin/contas-receber/${id}`,{method:'DELETE'});
+  if(!await finMutarContas(`/api/fin/contas-receber/${id}`,{method:'DELETE'})) return;
   toast('Conta excluída');
-  finCarregarContasReceber();
+  await finCarregarContasReceber({atualizar:true});
 }

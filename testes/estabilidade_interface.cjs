@@ -26,6 +26,7 @@ function browser(storage = new Map(), userId = 7) {
   }
   const context = vm.createContext({
     crypto: webcrypto, produtos: [], categorias: [], movProdId: 1, me: {id: userId},
+    setTimeout, clearTimeout,
     sessionStorage: {
       getItem: key => storage.get(key) || null,
       setItem: (key, value) => storage.set(key, value),
@@ -41,7 +42,7 @@ function browser(storage = new Map(), userId = 7) {
       return handler(request);
     },
   });
-  for (const file of ['movimentacoes.js', 'entrada_lote.js', 'financeiro_contas.js', 'inventario.js']) {
+  for (const file of ['utilitarios.js', 'movimentacoes.js', 'entrada_lote.js', 'financeiro_contas.js', 'inventario.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js/modules', file), 'utf8'), context, {filename: file});
   }
   vm.runInContext('carregarMovimentacoes=async()=>{};finCarregarContasPagar=async()=>{};invCarregarEstado=async()=>{};', context);

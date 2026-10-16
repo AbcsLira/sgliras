@@ -80,14 +80,16 @@ function setIngCatFiltro(cat){
   construirIngCatChips();
   filtrarIngModal();
 }
+const filtrarIngModalAoDigitar=adiarBusca(filtrarIngModal);
 function filtrarIngModal(){
-  const q=document.getElementById('f-ing-busca').value.toLowerCase();
+  filtrarIngModalAoDigitar.cancelar();
+  const q=document.getElementById('f-ing-busca').value.trim().toLowerCase();
   const lista=document.getElementById('f-ing-lista');
   let disp=produtos.filter(p=>p.ativo!==0 && +p.preco_custo>0 && CATEGORIAS_INGREDIENTE.includes(p.categoria));
   if(fIngCatFiltro) disp=disp.filter(p=>p.categoria===fIngCatFiltro);
-  const itens=q?disp.filter(p=>p.nome.toLowerCase().includes(q)||p.codigo.toLowerCase().includes(q)):disp;
+  const itens=q?disp.filter(p=>produtoCorrespondeBusca(p,q)):disp;
   if(!itens.length){lista.innerHTML='<div style="padding:9px;color:var(--muted);font-size:12px">Nenhum ingrediente encontrado</div>';return;}
-  lista.innerHTML=itens.map(p=>`<div class="p-opt" onclick="adicionarIng(${p.id})">
+  lista.innerHTML=avisoLimiteSeletor(itens.length)+itens.slice(0,LIMITE_RESULTADOS_SELETOR).map(p=>`<div class="p-opt" onclick="adicionarIng(${p.id})">
     <div><div class="pn">${p.nome}</div><div class="pi">${p.codigo} · <span class="badge badge-unit">${p.unidade||'un'}</span> · ${fmtR(+p.preco_custo)}</div></div>
     <div style="font-size:11px;color:var(--accent)">+ Add</div></div>`).join('');
 }

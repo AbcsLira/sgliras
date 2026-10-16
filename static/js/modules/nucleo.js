@@ -88,8 +88,8 @@ function irParaPagina(page){
   if(page==='fin-fechamento')     finIniciarFechamento();
   if(page==='fin-paes')           paesIniciar();
   if(page==='fin-massas')         massaIniciar();
-  if(page==='fin-contas-pagar'){finCatsPagar=[];finCarregarContasPagar();}
-  if(page==='fin-contas-receber') finCarregarContasReceber();
+  if(page==='fin-contas-pagar') finCarregarContasPagar({atualizar:true});
+  if(page==='fin-contas-receber') finCarregarContasReceber({atualizar:true});
   if(page==='fin-resumo')         finIniciarResumo();
   if(page==='fin-fds')            fdsIniciar();
   if(page==='fin-relatorio')      finCarregarRelatorioMensal();

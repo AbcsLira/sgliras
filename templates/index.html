@@ -180,7 +180,18 @@
         </tr></thead>
         <tbody id="t-produtos"></tbody>
       </table>
+      <div class="paginacao" aria-label="Paginação de produtos">
+        <span id="produtos-total" role="status" aria-live="polite"></span>
+        <label>Por página
+          <select id="produtos-por-pagina" onchange="alterarTamanhoPaginaProdutos(this.value)" aria-controls="t-produtos">
+            <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
+          </select>
+        </label>
+        <button id="produtos-anterior" class="btn btn-ghost btn-sm" onclick="mudarPaginaProdutos(-1)" aria-controls="t-produtos">Anterior</button>
+        <button id="produtos-proxima" class="btn btn-ghost btn-sm" onclick="mudarPaginaProdutos(1)" aria-controls="t-produtos">Próxima</button>
+      </div>
     </div>
+    <div id="produtos-status" class="estado-carregamento" role="status" aria-live="polite" hidden></div>
   </section>
 
   <!-- Movimentações -->
@@ -568,7 +579,10 @@
   <section id="page-fin-contas-pagar" class="page">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <div class="page-title" style="margin-bottom:0">Contas a Pagar</div>
-      <button class="btn btn-primary" onclick="finAbrirModalPagar()">+ Nova conta</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="finCarregarContasPagar({atualizar:true})">Atualizar</button>
+        <button class="btn btn-primary" onclick="finAbrirModalPagar()">+ Nova conta</button>
+      </div>
     </div>
 
     <!-- Alertas de vencimento próximo -->
@@ -653,7 +667,10 @@
   <section id="page-fin-contas-receber" class="page">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <div class="page-title" style="margin-bottom:0">Contas a Receber</div>
-      <button class="btn btn-primary" onclick="finAbrirModalReceber()">+ Nova conta</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="finCarregarContasReceber({atualizar:true})">Atualizar</button>
+        <button class="btn btn-primary" onclick="finAbrirModalReceber()">+ Nova conta</button>
+      </div>
     </div>
 
     <div class="chips-wrap" style="margin-bottom:16px">
@@ -1307,7 +1324,7 @@
   </div>
   <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap" id="entrada-lote-cat-chips"></div>
   <div class="srch-wrap" style="margin-bottom:8px"><span class="srch-icon">🔍</span>
-    <input id="entrada-lote-busca" type="text" placeholder="Ou buscar por nome ou código..." oninput="filtrarEntradaLoteBusca()"></div>
+    <input id="entrada-lote-busca" type="text" placeholder="Ou buscar por nome ou código..." oninput="filtrarEntradaLoteBuscaAoDigitar()"></div>
   <div class="p-lista" id="entrada-lote-lista" style="margin-bottom:12px;max-height:140px"></div>
 
   <div id="entrada-lote-itens-wrap" class="hidden">
@@ -1475,7 +1492,7 @@
         </div>
         <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap" id="mov-cat-chips"></div>
         <div class="srch-wrap"><span class="srch-icon">🔍</span>
-          <input id="mov-busca" type="text" placeholder="Ou buscar por nome ou código..." oninput="filtrarMovBusca()"></div>
+          <input id="mov-busca" type="text" placeholder="Ou buscar por nome ou código..." oninput="filtrarMovBuscaAoDigitar()"></div>
         <div class="p-lista" id="mov-lista"></div>
       </div>
     </div>
@@ -1506,7 +1523,7 @@
 <div class="modal" style="max-width:560px">
   <h3>+ Adicionar Produtos à Lista de Compras</h3>
   <div class="srch-wrap" style="margin-bottom:10px"><span class="srch-icon">🔍</span>
-    <input id="compra-busca" type="text" placeholder="Buscar produto por nome ou código..." oninput="filtrarCompraBusca()"></div>
+    <input id="compra-busca" type="text" placeholder="Buscar produto por nome ou código..." oninput="filtrarCompraBuscaAoDigitar()"></div>
   <div class="chips-wrap hidden" id="compra-forn-chips" style="margin-bottom:10px"></div>
   <div class="p-lista" id="compra-lista-busca" style="max-height:320px"></div>
   <div class="modal-footer" style="justify-content:space-between">
@@ -1616,7 +1633,7 @@
   </div>
   <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap" id="lote-cat-chips"></div>
   <div class="srch-wrap" style="margin-bottom:8px"><span class="srch-icon">🔍</span>
-    <input id="lote-busca" type="text" placeholder="Ou buscar por nome ou código..." oninput="filtrarLoteBusca()"></div>
+    <input id="lote-busca" type="text" placeholder="Ou buscar por nome ou código..." oninput="filtrarLoteBuscaAoDigitar()"></div>
   <div class="p-lista" id="lote-lista" style="margin-bottom:12px;max-height:140px"></div>
 
   <div id="lote-itens-wrap" class="hidden">
@@ -1654,7 +1671,7 @@
   <div class="section-title">🧂 Ingredientes</div>
   <div class="chips-wrap" id="f-ing-cat-chips" style="margin-bottom:8px"></div>
   <div class="srch-wrap" style="margin-bottom:8px"><span class="srch-icon">🔍</span>
-    <input id="f-ing-busca" type="text" placeholder="Buscar ingrediente do estoque..." oninput="filtrarIngModal()"></div>
+    <input id="f-ing-busca" type="text" placeholder="Buscar ingrediente do estoque..." oninput="filtrarIngModalAoDigitar()"></div>
   <div class="p-lista" id="f-ing-lista" style="margin-bottom:10px;max-height:120px"></div>
   <div id="f-ings-wrap" class="hidden">
     <div class="ing-lista" id="f-ings-rows">
@@ -1764,6 +1781,7 @@
 
 <div id="toast"></div>
 
+<script src="/static/js/modules/utilitarios.js"></script>
 <script src="/static/js/modules/nucleo.js"></script>
 <script src="/static/js/modules/painel.js"></script>
 <script src="/static/js/modules/produtos.js"></script>

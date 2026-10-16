@@ -1,13 +1,48 @@
 // ═══════════════════════════════════════
 // Produtos
 // ═══════════════════════════════════════
-async function carregarProdutos(){
-  [produtos,categorias]=await Promise.all([
-    fetch('/api/produtos').then(r=>r.json()),
-    fetch('/api/categorias').then(r=>r.json()),
-  ]);
-  construirCatTabs();
-  renderProdutos();
+let carregamentoProdutos=null, versaoCarregamentoProdutos=0, controladorProdutos=null;
+let paginaProdutos=1, tamanhoPaginaProdutos=50, filtroProdutosAnterior='';
+
+async function carregarProdutos({atualizar=false}={}){
+  if(carregamentoProdutos&&!atualizar) return carregamentoProdutos;
+  const versao=++versaoCarregamentoProdutos;
+  if(controladorProdutos) controladorProdutos.abort();
+  const controlador=new AbortController();
+  controladorProdutos=controlador;
+  const estado=document.getElementById('produtos-status');
+  const tabela=document.getElementById('t-produtos');
+  estado.hidden=false;
+  estado.textContent='Atualizando produtos…';
+  tabela.setAttribute('aria-busy','true');
+  carregamentoProdutos=(async()=>{
+    try{
+      const valores=await Promise.all(['/api/produtos','/api/categorias'].map(async url=>{
+        const resposta=await fetch(url,{signal:controlador.signal});
+        if(!resposta.ok) throw new Error('Não foi possível carregar os produtos.');
+        const dados=await resposta.json();
+        if(!Array.isArray(dados)) throw new Error('Resposta inválida do servidor.');
+        return dados;
+      }));
+      if(versao!==versaoCarregamentoProdutos) return false;
+      [produtos,categorias]=valores;
+      construirCatTabs();
+      renderProdutos();
+      estado.hidden=true;
+      return true;
+    }catch(erro){
+      if(versao===versaoCarregamentoProdutos&&erro.name!=='AbortError')
+        estado.innerHTML='Não foi possível atualizar os produtos. Os dados exibidos foram mantidos. <button type="button" class="btn btn-ghost btn-sm" onclick="carregarProdutos({atualizar:true})">Tentar novamente</button>';
+      return false;
+    }finally{
+      if(versao===versaoCarregamentoProdutos){
+        tabela.setAttribute('aria-busy','false');
+        carregamentoProdutos=null;
+        controladorProdutos=null;
+      }
+    }
+  })();
+  return carregamentoProdutos;
 }
 
 // Sub-nav de categorias na sidebar
@@ -15,9 +50,11 @@ async function carregarProdutos(){
 // Abas de filtro no topo da tabela de produtos
 function construirCatTabs(){
   const el=document.getElementById('cat-tabs');
+  const contagens=new Map();
+  produtos.forEach(p=>contagens.set(p.categoria_id,(contagens.get(p.categoria_id)||0)+1));
   let html=`<button class="cat-tab ${filtroCatId===null?'active':''}" onclick="filtrarPorCat(null,null,'Produtos')">Todos</button>`;
   categorias.forEach(cat=>{
-    const cnt=produtos.filter(p=>p.categoria_id===cat.id).length;
+    const cnt=contagens.get(cat.id)||0;
     if(!cnt) return;
     html+=`<button class="cat-tab ${filtroCatId===cat.id?'active':''}"
                onclick="filtrarPorCat(${cat.id},'${cat.nome}')">${CAT_ICONS[cat.nome]||'🏷️'} ${cat.nome} <span style="opacity:.6;font-size:10px">${cnt}</span></button>`;
@@ -62,12 +99,40 @@ function fmtQtdComoFardo(qtdUnidades, produto){
   return `${qtdUnidades} ${un}`;
 }
 
-function renderProdutos(busca=''){
+function mudarPaginaProdutos(direcao){
+  paginaProdutos+=direcao;
+  renderProdutos();
+}
+
+function alterarTamanhoPaginaProdutos(valor){
+  const tamanho=Number(valor);
+  if(![25,50,100].includes(tamanho)) return;
+  tamanhoPaginaProdutos=tamanho;
+  paginaProdutos=1;
+  renderProdutos();
+}
+
+function renderProdutos(busca=null){
+  filtrarProdutosAoDigitar.cancelar();
+  busca=String(busca??document.getElementById('busca-produto').value).trim().toLowerCase();
   let lista=produtos;
   const mostrarInativos=document.getElementById('chk-mostrar-inativos')?.checked;
+  const filtro=JSON.stringify([busca,filtroCatId,!!mostrarInativos,tamanhoPaginaProdutos]);
+  if(filtro!==filtroProdutosAnterior) paginaProdutos=1;
+  filtroProdutosAnterior=filtro;
   if(!mostrarInativos) lista=lista.filter(p=>p.ativo!==0);
   if(filtroCatId) lista=lista.filter(p=>p.categoria_id===filtroCatId);
-  if(busca) lista=lista.filter(p=>p.nome.toLowerCase().includes(busca)||p.codigo.toLowerCase().includes(busca));
+  if(busca) lista=lista.filter(p=>[p.nome,p.codigo,p.codigo_barras].some(valor=>String(valor??'').toLowerCase().includes(busca)));
+
+  const total=lista.length, paginas=Math.max(1,Math.ceil(total/tamanhoPaginaProdutos));
+  paginaProdutos=Math.min(paginas,Math.max(1,paginaProdutos));
+  const inicio=(paginaProdutos-1)*tamanhoPaginaProdutos;
+  document.getElementById('produtos-total').textContent=total
+    ?`${inicio+1}–${Math.min(inicio+tamanhoPaginaProdutos,total)} de ${total} produtos · página ${paginaProdutos} de ${paginas}`
+    :'Nenhum produto encontrado';
+  document.getElementById('produtos-anterior').disabled=paginaProdutos===1;
+  document.getElementById('produtos-proxima').disabled=paginaProdutos===paginas;
+  lista=lista.slice(inicio,inicio+tamanhoPaginaProdutos);
 
   const tbody=document.getElementById('t-produtos');
   if(!lista.length){tbody.innerHTML=`<tr><td colspan="8" class="empty">Nenhum produto${busca?' encontrado':' nesta categoria'}</td></tr>`;return;}
@@ -94,7 +159,8 @@ function renderProdutos(busca=''){
       </td></tr>`;
   }).join('');
 }
-document.getElementById('busca-produto').addEventListener('input',e=>renderProdutos(e.target.value.toLowerCase()));
+const filtrarProdutosAoDigitar=adiarBusca(()=>renderProdutos());
+document.getElementById('busca-produto').addEventListener('input',filtrarProdutosAoDigitar);
 
 async function alternarAtivoProduto(id, ativarAgora){
   const p=produtos.find(x=>x.id===id); if(!p) return;
@@ -249,12 +315,12 @@ async function salvarProduto(){
   }
 
   toast(editandoProdId?'Produto atualizado!':'Produto criado!');
-  fecharModal('modal-produto'); await carregarProdutos();
+  fecharModal('modal-produto'); await carregarProdutos({atualizar:true});
 }
 async function deletarProduto(id,nome){
   if(!confirm(`Excluir "${nome}"?`))return;
   await fetch(`/api/produtos/${id}`,{method:'DELETE'});
-  toast('Removido','var(--danger)'); await carregarProdutos();
+  toast('Removido','var(--danger)'); await carregarProdutos({atualizar:true});
 }
 
 // ═══════════════════════════════════════

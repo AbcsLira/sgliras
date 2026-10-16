@@ -117,6 +117,69 @@ function setInvCat(cat){
   renderInventario();
 }
 
+function invContagemValida(item){
+  return !item._contagemInvalida && typeof item.quantidade_contada==='number' &&
+    Number.isFinite(item.quantidade_contada) && item.quantidade_contada>=0;
+}
+
+function invDiferencaHtml(item){
+  if(item._contagemInvalida) return `<span style="color:var(--danger)">${item._contagemTexto===''?'Informe a quantidade ou 0':'Valor inválido'}</span>`;
+  if(!invContagemValida(item)) return '<span style="color:var(--muted)">Pendente</span>';
+  const diff = item.quantidade_contada - item.quantidade_sistema;
+  if(Math.abs(diff)<=0.0001) return '<span style="color:var(--muted)">—</span>';
+  const cor = diff>0?'var(--accent2)':'var(--danger)';
+  return `<strong style="color:${cor}">${diff>0?'+':''}${diff.toLocaleString('pt-BR',{maximumFractionDigits:3})} ${item.unidade}</strong>`;
+}
+
+function invAtualizarContadores(){
+  let contados=0, divergentes=0;
+  for(const item of invItens){
+    if(!invContagemValida(item)) continue;
+    contados++;
+    if(Math.abs(item.quantidade_contada-item.quantidade_sistema)>0.0001) divergentes++;
+  }
+  document.getElementById('inv-cnt-contados').textContent=contados;
+  document.getElementById('inv-cnt-divergentes').textContent=divergentes;
+  document.getElementById('inv-cnt-pendentes').textContent=invItens.length-contados;
+}
+
+function invAtualizarContagem(idx,valor,input){
+  const item = invItens[idx];
+  if(!item) return;
+  const texto = String(valor??'').trim();
+  const quantidade = Number(texto);
+  const invalida = texto==='' || !!input?.validity?.badInput ||
+    !Number.isFinite(quantidade) || quantidade<0;
+  item.quantidade_contada = texto==='' || invalida ? null : quantidade;
+  item._contagemInvalida = invalida;
+  item._contagemTexto = texto;
+  // Não recria a linha nem o campo: mantém foco, seleção e navegação por Tab.
+  const campo = input || document.getElementById(`inv-contagem-${idx}`);
+  if(campo){
+    campo.setCustomValidity(invalida?'Informe uma quantidade válida; use 0 para estoque zerado.':'');
+    campo.setAttribute('aria-invalid',String(invalida));
+    campo.style.borderColor=invalida?'var(--danger)':'';
+  }
+  const linha = document.getElementById(`inv-linha-${idx}`);
+  if(linha) linha.style.opacity=item.quantidade_contada===null && !invalida?'.55':'';
+  const diferenca = document.getElementById(`inv-diferenca-${idx}`);
+  if(diferenca) diferenca.innerHTML=invDiferencaHtml(item);
+  invAtualizarContadores();
+}
+
+function invValidarContagens(){
+  if(invItens.some(item=>item._contagemInvalida ||
+    (item.quantidade_contada!=null && !invContagemValida(item)))){
+    toast('Informe uma quantidade válida; use 0 para estoque zerado.','var(--danger)');
+    return false;
+  }
+  return true;
+}
+
+function invAtributo(valor){
+  return String(valor??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function renderInventario(){
   const itens = invCatFiltro ? invItens.filter(i=>i.categoria===invCatFiltro) : invItens;
   const tbody = document.getElementById('t-inventario');
@@ -125,50 +188,38 @@ function renderInventario(){
   } else {
     tbody.innerHTML = itens.map((item, _)=>{
       const idx = invItens.indexOf(item);
-      const contada = item.quantidade_contada ?? item.quantidade_sistema;
-      const diff = contada - item.quantidade_sistema;
-      let diffHtml = '<span style="color:var(--muted)">—</span>';
-      if(Math.abs(diff)>0.0001){
-        const cor = diff>0?'var(--accent2)':'var(--danger)';
-        const sinal = diff>0?'+':'';
-        diffHtml=`<strong style="color:${cor}">${sinal}${diff.toLocaleString('pt-BR',{maximumFractionDigits:3})} ${item.unidade}</strong>`;
-      }
-      return `<tr style="${item.quantidade_contada===null?'opacity:.55':''}">
+      const contada = item._contagemTexto ?? item.quantidade_contada ?? '';
+      return `<tr id="inv-linha-${idx}" style="${item.quantidade_contada===null && !item._contagemInvalida?'opacity:.55':''}">
         <td>
           <div>${item.nome}</div>
           <small style="color:var(--muted)">${item.codigo} · ${item.categoria}</small>
         </td>
         <td style="white-space:nowrap">${fmtQtdComoFardo(item.quantidade_sistema,item)}</td>
         <td>
-          <input type="number" min="0" step="0.001" value="${contada}"
-            style="width:90px;padding:5px 7px;font-size:13px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text)"
-            onchange="invItens[${idx}].quantidade_contada=+this.value; renderInventario()">
+          <input id="inv-contagem-${idx}" type="number" min="0" step="0.001" value="${invAtributo(contada)}" aria-invalid="${!!item._contagemInvalida}"
+            style="width:90px;padding:5px 7px;font-size:13px;border-radius:8px;border:1px solid ${item._contagemInvalida?'var(--danger)':'var(--border)'};background:rgba(255,255,255,.04);color:var(--text)"
+            oninput="invAtualizarContagem(${idx},this.value,this)">
         </td>
-        <td>${diffHtml}</td>
+        <td id="inv-diferenca-${idx}">${invDiferencaHtml(item)}</td>
         <td>
-          <input type="text" value="${item.observacao||''}" placeholder="—"
+          <input type="text" value="${invAtributo(item.observacao)}" placeholder="—"
             style="width:100px;padding:4px 7px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text)"
-            onchange="invItens[${idx}].observacao=this.value">
+            oninput="invItens[${idx}].observacao=this.value">
         </td>
       </tr>`;
     }).join('');
   }
-  // Atualizar contadores
-  const contados = invItens.filter(i=>i.quantidade_contada!==null).length;
-  const divergentes = invItens.filter(i=>i.quantidade_contada!==null && Math.abs((i.quantidade_contada??i.quantidade_sistema)-i.quantidade_sistema)>0.0001).length;
-  const pendentes = invItens.filter(i=>i.quantidade_contada===null).length;
-  document.getElementById('inv-cnt-contados').textContent=contados;
-  document.getElementById('inv-cnt-divergentes').textContent=divergentes;
-  document.getElementById('inv-cnt-pendentes').textContent=pendentes;
+  invAtualizarContadores();
 }
 
 async function invSalvarParcial(){
   if(!invAtual) return false;
+  if(!invValidarContagens()) return false;
   if(invSalvando){toast('Aguarde o salvamento das contagens.','var(--danger)');return false;}
   invSalvando=true;
   const itens = invItens.map(i=>({
     produto_id:i.produto_id,
-    quantidade_contada:i.quantidade_contada,
+    quantidade_contada:i.quantidade_contada??null,
     observacao:i.observacao||''
   }));
   try{
@@ -187,6 +238,7 @@ async function invSalvarParcial(){
 }
 
 async function invFinalizar(){
+  if(!invValidarContagens()) return;
   const divergentes = invItens.filter(i=>i.quantidade_contada!==null && Math.abs((i.quantidade_contada??i.quantidade_sistema)-i.quantidade_sistema)>0.0001);
   const pendentes = invItens.filter(i=>i.quantidade_contada===null).length;
   // Montar resumo
@@ -295,6 +347,7 @@ async function invVerDetalhes(id){
 
 // Compatibilidade com função antiga (contagem rápida ainda funciona)
 async function confirmarContagemInventario(){
+  if(!invValidarContagens()) return;
   const divergentes=invItens.filter(i=>Math.abs((i.quantidade_contada??i.quantidade_sistema)-i.quantidade_sistema)>0.0001);
   if(!divergentes.length){toast('Nenhuma diferença encontrada, nada para ajustar');return;}
   if(!confirm(`Confirmar ajuste de ${divergentes.length} produto(s)?`)) return;

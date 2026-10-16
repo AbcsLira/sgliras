@@ -4,6 +4,8 @@
 let listaCompras=[]; // [{produto_id, nome, codigo, unidade, quantidade_estoque, quantidade_comprar, fornecedor_sugerido, preco_unit}]
 
 async function carregarSugestaoCompras(){
+  filtrarCompraBuscaAoDigitar.cancelar();
+  compraBuscaVersao++;
   // Reseta todo o estado da tela ao entrar, garantindo que não sobra nada de uma visita anterior
   compraFornFiltro=null;
   produtosPorFornecedorCache={};
@@ -93,10 +95,13 @@ function removerItemCompra(idx){
 }
 
 let compraFornFiltro=null; // id do fornecedor selecionado para filtrar a busca
-let produtosPorFornecedorCache={}; // {fornecedor_id: [produtos com preco_fornecedor]}
+let produtosPorFornecedorCache={}; // {fornecedor_id: produtos com preço ou Promise em andamento}
 let compraSelecionados={}; // {produto_id: true} - produtos marcados no modal antes de confirmar
+let compraBuscaVersao=0;
 
 async function abrirBuscaCompraManual(){
+  filtrarCompraBuscaAoDigitar.cancelar();
+  compraBuscaVersao++;
   if(!produtos.length) produtos=await fetch('/api/produtos').then(r=>r.json());
   if(!fornecedores.length) fornecedores=await fetch('/api/fornecedores').then(r=>r.json());
   compraFornFiltro=null;
@@ -129,27 +134,49 @@ async function setCompraFornFiltro(fid){
   await filtrarCompraBusca();
 }
 
+const filtrarCompraBuscaAoDigitar=adiarBusca(filtrarCompraBusca);
 async function filtrarCompraBusca(){
-  const q=document.getElementById('compra-busca').value.toLowerCase();
+  filtrarCompraBuscaAoDigitar.cancelar();
+  const versao=++compraBuscaVersao;
+  const q=document.getElementById('compra-busca').value.trim().toLowerCase();
   const lista=document.getElementById('compra-lista-busca');
+  const fornecedorId=compraFornFiltro;
+  const cache=produtosPorFornecedorCache;
+  const buscaAtual=()=>versao===compraBuscaVersao&&fornecedorId===compraFornFiltro&&
+    q===document.getElementById('compra-busca').value.trim().toLowerCase();
 
   let baseItens;
-  if(compraFornFiltro){
-    if(!produtosPorFornecedorCache[compraFornFiltro]){
-      produtosPorFornecedorCache[compraFornFiltro]=await fetch(`/api/fornecedores/${compraFornFiltro}/produtos`).then(r=>r.json());
+  if(fornecedorId){
+    if(!cache[fornecedorId]){
+      cache[fornecedorId]=fetch(`/api/fornecedores/${fornecedorId}/produtos`).then(r=>{
+        if(!r.ok) throw new Error('Não foi possível carregar os produtos do fornecedor');
+        return r.json();
+      }).then(itens=>{
+        if(!Array.isArray(itens)) throw new Error('Resposta inválida do fornecedor');
+        return itens;
+      });
     }
-    baseItens=produtosPorFornecedorCache[compraFornFiltro];
+    try{
+      baseItens=await cache[fornecedorId];
+      cache[fornecedorId]=baseItens;
+    } catch(erro){
+      delete cache[fornecedorId];
+      if(buscaAtual()) lista.innerHTML='<div role="status" style="padding:9px;color:var(--danger);font-size:12px">Não foi possível carregar os produtos do fornecedor. Tente novamente.</div>';
+      return;
+    }
   } else {
     baseItens=produtos;
   }
+  if(!buscaAtual()) return;
 
   // Não mostra produtos que já estão na lista de compras
-  baseItens=baseItens.filter(p=>!listaCompras.find(i=>i.produto_id===p.id));
+  const jaAdicionados=new Set(listaCompras.map(item=>item.produto_id));
+  baseItens=baseItens.filter(p=>!jaAdicionados.has(p.id));
 
-  const itens=q?baseItens.filter(p=>p.nome.toLowerCase().includes(q)||p.codigo.toLowerCase().includes(q)):baseItens;
+  const itens=q?baseItens.filter(p=>produtoCorrespondeBusca(p,q)):baseItens;
   if(!itens.length){lista.innerHTML='<div style="padding:9px;color:var(--muted);font-size:12px">Nenhum produto encontrado</div>';return;}
-  lista.innerHTML=itens.slice(0,50).map(p=>{
-    const precoInfo=compraFornFiltro&&p.preco_fornecedor!=null?` · <span style="color:var(--accent2)">${fmtR(p.preco_fornecedor)}</span>`:'';
+  lista.innerHTML=avisoLimiteSeletor(itens.length)+itens.slice(0,LIMITE_RESULTADOS_SELETOR).map(p=>{
+    const precoInfo=fornecedorId&&p.preco_fornecedor!=null?` · <span style="color:var(--accent2)">${fmtR(p.preco_fornecedor)}</span>`:'';
     const marcado=!!compraSelecionados[p.id];
     return `<div class="p-opt ${marcado?'p-opt-selected':''}" onclick="toggleCompraSelecionado(${p.id})">
     <input type="checkbox" class="p-opt-check" ${marcado?'checked':''} style="pointer-events:none">
