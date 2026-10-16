@@ -91,7 +91,7 @@ class RegressionTests(unittest.TestCase):
                 with self.subTest(asset=asset):
                     with self.client.get(asset.decode()) as asset_response:
                         self.assertEqual(asset_response.status_code, 200)
-        for asset in ('/static/css/acesso.css', '/static/js/acesso.js'):
+        for asset in ('/static/css/login.css', '/static/js/login.js'):
             with self.client.get(asset) as asset_response:
                 self.assertEqual(asset_response.status_code, 200)
         self.client.post('/api/auth/logout')

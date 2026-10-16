@@ -4,8 +4,10 @@ O comando de inicialização continua sendo `python app.py`. No Windows, os
 arquivos `iniciar.bat` e `iniciar_segundo_plano.bat` continuam usando essa entrada.
 Execute os comandos na raiz do checkout.
 
-Os arquivos e módulos do projeto usam nomes em português, sem acentos ou
-espaços. Os nomes convencionais das ferramentas, como `app.py`, `__init__.py`,
+Os módulos do backend e os testes usam nomes em português, sem acentos ou
+espaços. Na interface, os arquivos HTML, CSS e JavaScript mantêm nomes em inglês,
+como `index.html`, `login.html`, `products.js` e `movements.js`.
+Os nomes convencionais das ferramentas, como `app.py`, `__init__.py`,
 `requirements.txt`, `README.md` e os diretórios `static/` e `templates/`, são
 preservados. Os arquivos de teste usam o prefixo `teste_`, compatível com o
 padrão `test*.py` do unittest. A padronização dos arquivos não altera as URLs
@@ -36,16 +38,16 @@ contexto Flask (`with app.app_context():` fora de uma requisição).
 
 ## Interface
 
-- `templates/principal.html`: estrutura da aplicação e modais.
-- `templates/entrar.html`: formulário de autenticação.
+- `templates/index.html`: estrutura da aplicação e modais.
+- `templates/login.html`: formulário de autenticação.
 - `static/css/`: estilos separados da aplicação e do login.
-- `static/js/acesso.js`: autenticação da tela de login.
-- `static/js/modulos/`: scripts separados por área funcional.
+- `static/js/login.js`: autenticação da tela de login.
+- `static/js/modules/`: scripts separados por área funcional.
 
-Os scripts são carregados na ordem declarada em `templates/principal.html`.
+Os scripts são carregados na ordem declarada em `templates/index.html`.
 Continuam sendo scripts clássicos: os manipuladores usados por `onclick` e o
-estado compartilhado da interface foram preservados. `nucleo.js` contém o estado
-comum e `navegacao.js`, carregado por último, chama `init()`. Não use `async`, nem
+estado compartilhado da interface foram preservados. `core.js` contém o estado
+comum e `shell.js`, carregado por último, chama `init()`. Não use `async`, nem
 altere a ordem sem revisar as dependências. Os estilos e scripts das janelas
 de impressão continuam nos templates de impressão gerados pelo JavaScript.
 Não há etapa de build do frontend.

@@ -5,10 +5,10 @@ from ..seguranca import PERFIS, hash_senha, verificar_senha, login_requerido
 
 def login_page():
     if "usuario_id" in session: return redirect("/")
-    return render_template("entrar.html")
+    return render_template("login.html")
 
 @login_requerido
-def index(): return render_template("principal.html")
+def index(): return render_template("index.html")
 
 def api_login():
     d = request.get_json(silent=True)

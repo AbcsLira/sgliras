@@ -56,7 +56,7 @@ EstoqueApp/
 ├── app.py
 ├── requirements.txt
 └── templates/
-    └── principal.html
+    └── index.html
 ```
 
 ---

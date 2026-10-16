@@ -41,8 +41,8 @@ function browser(storage = new Map(), userId = 7) {
       return handler(request);
     },
   });
-  for (const file of ['movimentacoes.js', 'entrada_lote.js', 'financeiro_contas.js', 'inventario.js']) {
-    vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js/modulos', file), 'utf8'), context, {filename: file});
+  for (const file of ['movements.js', 'batch_entry.js', 'finance_accounts.js', 'inventory.js']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js/modules', file), 'utf8'), context, {filename: file});
   }
   vm.runInContext('carregarMovimentacoes=async()=>{};finCarregarContasPagar=async()=>{};invCarregarEstado=async()=>{};', context);
   return {
