@@ -88,18 +88,18 @@ Na primeira execução, o banco de dados e as tabelas são criados automaticamen
 sg-liras/
 ├── app.py                   # Entrada do servidor
 ├── sgliras/                 # Backend dividido por responsabilidade
-│   ├── routes/              # Rotas separadas por módulo
-│   ├── database.py          # Schema, migrações e conexões
-│   ├── security.py          # Autenticação e permissões
-│   └── backups.py           # Backup e integridade
+│   ├── rotas/               # Rotas separadas por módulo
+│   ├── banco_dados.py       # Schema, migrações e conexões
+│   ├── seguranca.py         # Autenticação e permissões
+│   └── copias_seguranca.py  # Backup e integridade
 ├── templates/               # HTML da aplicação e do login
 ├── static/                  # CSS e JavaScript por módulo
-├── tests/                   # Testes de regressão com bancos temporários
+├── testes/                   # Testes de regressão com bancos temporários
 ├── config.ini               # Configuração local (não versionada)
 └── backups/                 # Backups locais (não versionados)
 ```
 
-Veja [ARCHITECTURE.md](ARCHITECTURE.md) para o mapa dos módulos e os comandos de teste.
+Veja [ARQUITETURA.md](ARQUITETURA.md) para o mapa dos módulos e os comandos de teste.
 
 ## 📌 Sobre o projeto
 

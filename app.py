@@ -1,8 +1,8 @@
 """Entrada compatível com os scripts existentes: python app.py."""
 from sgliras import create_app
-from sgliras.config import load_config
-from sgliras.database import init_db
-from sgliras.backups import backup_diario_necessario, fazer_backup
+from sgliras.configuracao import load_config
+from sgliras.banco_dados import init_db
+from sgliras.copias_seguranca import backup_diario_necessario, fazer_backup
 
 app = create_app()
 

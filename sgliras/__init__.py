@@ -2,8 +2,8 @@
 import sqlite3
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import HTTPException
-from .config import ROOT_DIR, DB_PATH, BACKUP_DIR, load_secret_key
-from .validation import ValidationError
+from .configuracao import ROOT_DIR, DB_PATH, BACKUP_DIR, load_secret_key
+from .validacao import ValidationError
 
 def create_app(test_config=None):
     app = Flask(__name__, template_folder=str(ROOT_DIR / 'templates'), static_folder=str(ROOT_DIR / 'static'))
@@ -12,8 +12,8 @@ def create_app(test_config=None):
         app.config.update(test_config)
     if not app.config.get('SECRET_KEY'):
         app.config['SECRET_KEY'] = load_secret_key()
-    from .routes import register_routes
-    from .database import close_connections
+    from .rotas import register_routes
+    from .banco_dados import close_connections
     register_routes(app)
     app.teardown_appcontext(close_connections)
 
