@@ -30,12 +30,12 @@ class RegressionTests(unittest.TestCase):
             'BACKUP_DIR': str(Path(self.directory.name) / 'backups'),
         })
         with self.app.app_context():
-            init_db()
+            self.senha_inicial = init_db()
         self.client = self.app.test_client()
 
     def login(self):
         response = self.client.post('/api/auth/login', json={
-            'usuario': 'admin', 'senha': 'admin123',
+            'usuario': 'admin', 'senha': self.senha_inicial,
         })
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json['ok'])

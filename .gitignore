@@ -4,6 +4,7 @@
 /estoque.db-shm
 /estoque.db-wal
 /backups/
+/backup_externo.log
 /venv/
 /.venv/
 # Artefatos Python

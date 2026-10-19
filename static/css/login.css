@@ -1,4 +1,11 @@
-
+  /* Inter variável local: funciona sem serviços de fontes externos. */
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('/static/fonts/InterVariable.woff2') format('woff2');
+  }
 
   :root {
     --bg: #080b12;
@@ -32,7 +39,7 @@
       radial-gradient(circle at 50% 45%, rgba(38, 54, 84, .18), transparent 34%),
       linear-gradient(135deg, var(--bg), var(--bg-2));
     color: var(--text);
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
   /* Brilhos decorativos discretos */

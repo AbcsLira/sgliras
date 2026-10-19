@@ -1,0 +1,2 @@
+# Scripts do Windows devem chegar ao checkout com quebras de linha CRLF reais.
+*.bat text eol=crlf

@@ -80,7 +80,19 @@ python app.py
 
 O sistema ficará disponível em `http://localhost:8888` (ou na porta configurada em `config.ini`).
 
-Na primeira execução, o banco de dados e as tabelas são criados automaticamente, junto com um usuário administrador padrão definido no código. Altere a senha na aplicação após o primeiro acesso.
+Na primeira execução, o banco de dados e as tabelas são criados automaticamente,
+junto com o usuário `admin` e uma senha aleatória. A senha aparece no terminal
+somente nessa primeira criação: anote-a antes de fechar a janela e altere-a na
+aplicação após entrar. Atualizações e reinicializações preservam os usuários e
+as senhas existentes.
+
+Para backup externo no Windows, use `backup_externo.bat` (ajuste a unidade de
+destino no arquivo). Ele chama `backup_banco.py`, que usa a API de backup do
+SQLite e inclui os dados confirmados que ainda estão no WAL, mesmo com o
+servidor em uso. Para escolher um destino manualmente, execute
+`python backup_banco.py "caminho/do/backup.db"`.
+O destino deve ser um arquivo novo. Para gerar automaticamente um nome com
+data, hora e microssegundos, use `python backup_banco.py --pasta "caminho/da/pasta"`.
 
 ## 📁 Estrutura do projeto
 
@@ -112,6 +124,9 @@ Este projeto foi desenvolvido com apoio de IA (Claude, da Anthropic) para a impl
 ## 📄 Licença
 
 Este projeto é disponibilizado publicamente apenas para fins de portfólio e demonstração técnica. Todos os direitos reservados — consulte o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+A fonte Inter incluída em `static/fonts/` segue sua própria licença SIL Open
+Font License; consulte os arquivos de licença e origem nessa pasta.
 
 ---
 

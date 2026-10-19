@@ -22,6 +22,7 @@ das APIs nem os nomes e caminhos dos dados locais.
 - `sgliras/seguranca.py`: perfis, hashes de senha e controle de acesso.
 - `sgliras/auditoria.py`: registro de auditoria dentro da transação da operação.
 - `sgliras/copias_seguranca.py`: backup SQLite e verificação de integridade.
+- `backup_banco.py` e `backup_externo.bat`: backup consistente para destino externo.
 - `sgliras/rotas/`: autenticação, usuários, estoque, dashboard, receitas,
   fornecedores, inventário, relatórios e administração de backups.
 - `sgliras/rotas/financeiro_*.py`: fechamento diário, contas, pães, massas e relatórios.
@@ -71,8 +72,9 @@ O cache dura até 30 segundos e é revalidado na próxima interação, na entrad
 da tela, pelo botão Atualizar ou após uma alteração. Respostas substituídas
 são descartadas. Falhas preservam os dados visíveis e oferecem nova tentativa.
 Os dados continuam sendo obtidos das APIs existentes; o cache não altera os
-registros no banco. As fontes da interface são as fontes do sistema, sem
-downloads nem arquivos locais ausentes.
+registros no banco. A fonte Inter é servida localmente de `static/fonts/`, com
+licença OFL incluída; funciona sem internet e mantém fontes do sistema como
+alternativa.
 
 ## Instalação e testes
 
@@ -134,9 +136,20 @@ inesperadas interrompem a inicialização e desfazem a migração; consulte o er
 e preserve o banco para diagnóstico. Conexões esquecidas são fechadas ao fim
 do contexto Flask, desfazendo gravações não confirmadas.
 
+O backup externo usa a API SQLite, verifica a integridade antes de publicar o
+arquivo e preserva destinos existentes. O nome automático é gerado em Python,
+independente do idioma do Windows. O batch interrompe em falha, e a retenção
+considera a data no nome dos arquivos, preservando as 60 cópias mais recentes.
+
 Os testes de estabilidade exercitam validação, repetição, concorrência e
 rollback usando bancos temporários. Os testes Node executam os scripts reais
 com DOM e rede simulados, sem dependências adicionais. O workflow
 `.github/workflows/testes.yml` configura a execução de ambos em Linux e Windows.
+O backend é verificado com Python 3.12 e 3.14.
 Isso não substitui testar impressão e interação visual no navegador utilizado
 na operação.
+
+Em um banco sem usuários, `init_db()` gera uma senha aleatória para o primeiro
+administrador e a retorna apenas após confirmar a transação. `app.py` mostra
+essa senha uma única vez no terminal. Reinicializar um banco com usuários
+preserva senhas e logins, inclusive se o administrador tiver sido renomeado.

@@ -11,7 +11,11 @@ if __name__=="__main__":
     # transações confirmadas que ainda não foram gravadas no .db principal.
     # O próprio SQLite recupera esses arquivos automaticamente ao abrir a conexão.
     with app.app_context():
-        init_db()
+        senha_inicial = init_db()
+    if senha_inicial:
+        print("Primeiro acesso: usuario=admin")
+        print(f"Senha inicial: {senha_inicial}")
+        print("Anote esta senha e altere-a na aplicacao. Ela sera exibida apenas agora.")
     cfg=load_config()
     # Backup automático diário (na inicialização, se ainda não foi feito hoje)
     with app.app_context():
@@ -20,7 +24,6 @@ if __name__=="__main__":
             if nome_bkp:
                 print(f"💾  Backup automático criado: {nome_bkp}")
     print("\n✅  Banco inicializado.")
-    print(f"👤  Admin padrão: usuário=admin  senha=admin123")
     print(f"🚀  http://{cfg['host']}:{cfg['porta']}\n")
 
     # Tenta usar Waitress (servidor de produção para Windows)

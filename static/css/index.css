@@ -1,9 +1,11 @@
 
-/* Fontes do sistema, disponíveis sem requisições de rede. */
+/* Inter variável hospedada localmente; licença e origem em static/fonts/. */
+@font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;
+  src:url('/static/fonts/InterVariable.woff2') format('woff2')}
 
 :root{--bg:#070b1a;--surface:rgba(18,26,50,.75);--border:rgba(255,255,255,.08);--accent:#4f7cff;--accent2:#22c55e;
       --danger:#ef4444;--warn:#f59e0b;--purple:#8b5cf6;--text:#f8fafc;--muted:#94a3b8;
-      --surface2:#0f1729;--radius:18px;--font:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      --surface2:#0f1729;--radius:18px;--font:'Inter',system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:radial-gradient(circle at top left,rgba(79,124,255,.15),transparent 35%),var(--bg);
      color:var(--text);font-family:var(--font);font-size:14px;min-height:100vh}

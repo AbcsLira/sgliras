@@ -322,8 +322,31 @@ async function salvarProduto(){
 }
 async function deletarProduto(id,nome){
   if(!confirm(`Excluir "${nome}"?`))return;
-  await fetch(`/api/produtos/${id}`,{method:'DELETE'});
-  toast('Removido','var(--danger)'); await carregarProdutos({atualizar:true});
+  let acao='exclusão';
+  try{
+    const res=await fetch(`/api/produtos/${id}`,{method:'DELETE'});
+    const d=await res.json().catch(()=>null);
+    if(!res.ok || !d || d.erro || d.ok!==true){
+      const mensagem=d?.erro||'Não foi possível confirmar a exclusão do produto.';
+      if(res.status===400 && confirm(`${mensagem}\n\nDeseja desativar "${nome}" agora?`)){
+        acao='desativação';
+        const resposta=await fetch(`/api/produtos/${id}/ativo`,{method:'PUT',
+          headers:{'Content-Type':'application/json'},body:JSON.stringify({ativo:false})});
+        const dados=await resposta.json().catch(()=>null);
+        if(!resposta.ok || !dados || dados.erro || dados.ok!==true || dados.ativo!==false){
+          toast(dados?.erro||'Não foi possível confirmar a desativação do produto.','var(--danger)');
+          return;
+        }
+        toast(`"${nome}" desativado.`); await carregarProdutos({atualizar:true});
+        return;
+      }
+      toast(mensagem,'var(--danger)');
+      return;
+    }
+    toast('Removido','var(--danger)'); await carregarProdutos({atualizar:true});
+  }catch(erro){
+    toast(`Não foi possível confirmar a ${acao}. Verifique sua conexão e atualize a lista antes de tentar novamente.`,'var(--danger)');
+  }
 }
 
 // ═══════════════════════════════════════

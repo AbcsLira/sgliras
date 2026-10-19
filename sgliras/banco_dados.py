@@ -1,16 +1,19 @@
 """Inicialização, migrações e conexões SQLite."""
 import sqlite3
+import secrets
 from datetime import datetime
 from flask import current_app, g
 from .seguranca import hash_senha
 
 def init_db():
+    """Inicializa o banco e retorna a senha somente se criar o primeiro usuário."""
     conn = sqlite3.connect(current_app.config["DATABASE"])
     try:
         conn.execute("PRAGMA journal_mode = WAL")
         conn.execute("PRAGMA foreign_keys = ON")
-        _initialize_db(conn)
+        senha_inicial = _initialize_db(conn)
         conn.commit()
+        return senha_inicial
     except Exception:
         conn.rollback()
         raise
@@ -293,16 +296,18 @@ def _initialize_db(conn):
         columns = {row[1].casefold() for row in c.execute(f"PRAGMA table_info({table})")}
         if column.casefold() not in columns:
             c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
-    admin = c.execute("SELECT id FROM usuarios WHERE usuario='admin'").fetchone()
-    if not admin:
+    senha_inicial = None
+    if not c.execute("SELECT id FROM usuarios LIMIT 1").fetchone():
+        senha_inicial = secrets.token_urlsafe(18)
         c.execute("INSERT INTO usuarios (nome,usuario,senha,perfil,ativo,criado_em) VALUES (?,?,?,?,?,?)",
-                  ("Administrador","admin",hash_senha("admin123"),"admin",1,datetime.now().isoformat()))
+                  ("Administrador","admin",hash_senha(senha_inicial),"admin",1,datetime.now().isoformat()))
     # Popular categorias padrão de contas a pagar se ainda não existirem
     if not c.execute("SELECT id FROM fin_categorias_pagar LIMIT 1").fetchone():
         cats_padrao = ["Fornecedor","Água/Luz/Gás","Salário","Manutenção","Impostos","Outros"]
         for cat in cats_padrao:
             c.execute("INSERT OR IGNORE INTO fin_categorias_pagar (nome,criado_em) VALUES (?,?)",
                       (cat, datetime.now().isoformat()))
+    return senha_inicial
 
 def get_db():
     conn = sqlite3.connect(current_app.config["DATABASE"], timeout=10)

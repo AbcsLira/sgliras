@@ -22,12 +22,12 @@ class SessionsAndMigrationsTests(unittest.TestCase):
             "DATABASE": str(self.path),
             "BACKUP_DIR": str(Path(directory.name) / "backups"),
         })
-        self.initialize()
+        self.senha_inicial = self.initialize()
         self.client = self.app.test_client()
 
     def initialize(self):
         with self.app.app_context():
-            init_db()
+            return init_db()
 
     def execute(self, sql, parameters=()):
         with closing(sqlite3.connect(self.app.config["DATABASE"])) as db:
@@ -37,7 +37,7 @@ class SessionsAndMigrationsTests(unittest.TestCase):
 
     def login(self):
         response = self.client.post("/api/auth/login", json={
-            "usuario": "admin", "senha": "admin123",
+            "usuario": "admin", "senha": self.senha_inicial,
         })
         self.assertEqual(response.status_code, 200)
 
@@ -78,7 +78,7 @@ class SessionsAndMigrationsTests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/auth/me").status_code, 401)
         self.assert_session_cleared()
         response = self.client.post("/api/auth/login", json={
-            "usuario": "admin", "senha": "admin123",
+            "usuario": "admin", "senha": self.senha_inicial,
         })
         self.assertEqual(response.status_code, 401)
         self.assert_session_cleared()
@@ -101,19 +101,19 @@ class SessionsAndMigrationsTests(unittest.TestCase):
 
     def test_password_change_validates_payload_and_preserves_old_password_on_error(self):
         self.login()
-        for payload in ([], {}, {"senha_atual": "admin123", "senha_nova": 123},
-                        {"senha_atual": "admin123", "senha_nova": ""},
+        for payload in ([], {}, {"senha_atual": self.senha_inicial, "senha_nova": 123},
+                        {"senha_atual": self.senha_inicial, "senha_nova": ""},
                         {"senha_atual": "incorreta", "senha_nova": "nova-senha"}):
             with self.subTest(payload=payload):
                 response = self.client.put("/api/auth/senha", json=payload)
                 self.assertEqual(response.status_code, 400)
         self.login()
         response = self.client.put("/api/auth/senha", json={
-            "senha_atual": "admin123", "senha_nova": "nova-senha",
+            "senha_atual": self.senha_inicial, "senha_nova": "nova-senha",
         })
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.client.post("/api/auth/login", json={
-            "usuario": "admin", "senha": "admin123",
+            "usuario": "admin", "senha": self.senha_inicial,
         }).status_code, 401)
         self.assertEqual(self.client.post("/api/auth/login", json={
             "usuario": "admin", "senha": "nova-senha",
@@ -122,13 +122,13 @@ class SessionsAndMigrationsTests(unittest.TestCase):
     def test_malformed_stored_hash_does_not_crash_login(self):
         self.execute("UPDATE usuarios SET senha='scrypt:invalido' WHERE id=1")
         response = self.client.post("/api/auth/login", json={
-            "usuario": "admin", "senha": "admin123",
+            "usuario": "admin", "senha": self.senha_inicial,
         })
         self.assertEqual(response.status_code, 401)
         self.assert_session_cleared()
 
     def test_valid_legacy_password_is_upgraded(self):
-        legacy_hash = hashlib.sha256(b"admin123").hexdigest()
+        legacy_hash = hashlib.sha256(self.senha_inicial.encode()).hexdigest()
         self.execute("UPDATE usuarios SET senha=? WHERE id=1", (legacy_hash,))
         self.login()
         stored_hash = self.execute("SELECT senha FROM usuarios WHERE id=1")[0][0]

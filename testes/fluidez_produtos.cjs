@@ -6,8 +6,8 @@ const path=require('node:path');
 const vm=require('node:vm');
 
 function browser(){
-  const elements=new Map(), timers=new Map(), requests=[];
-  let nextTimer=0, handler=async()=>({ok:true,json:async()=>[]});
+  const elements=new Map(), timers=new Map(), requests=[], requestDetails=[], messages=[], confirmations=[];
+  let nextTimer=0, handler=async()=>({ok:true,json:async()=>[]}), confirmHandler=()=>true;
   function element(id){
     if(!elements.has(id)) elements.set(id,{
       value:'',checked:false,hidden:false,disabled:false,innerHTML:'',textContent:'',attrs:{},events:{},
@@ -22,14 +22,19 @@ function browser(){
     document:{getElementById:element},
     setTimeout(fn){const id=++nextTimer;timers.set(id,fn);return id;},
     clearTimeout(id){timers.delete(id);},
-    fetch:async url=>{requests.push(url);return handler(url);},
+    confirm:message=>{confirmations.push(message);return confirmHandler(message,confirmations.length);},
+    toast:(message,color)=>messages.push({message,color}),
+    fetch:async(url,options={})=>{
+      requests.push(url);requestDetails.push({url,options});return handler(url,options);
+    },
   });
   for(const file of ['utilitarios.js','produtos.js']){
     vm.runInContext(fs.readFileSync(path.join(__dirname,'../static/js/modules',file),'utf8'),context,{filename:file});
   }
-  return {context,element,requests,timers,
+  return {context,element,requests,requestDetails,messages,confirmations,timers,
     run:src=>vm.runInContext(src,context),
     respond(fn){handler=fn;},
+    confirm(fn){confirmHandler=fn;},
     type(value){const input=element('busca-produto');input.value=value;input.events.input({target:input});},
     flush(){for(const [id,fn] of [...timers]){timers.delete(id);fn();}},
   };
@@ -152,4 +157,167 @@ test('debounce pode executar imediatamente ou cancelar sem executar',()=>{
   const b=browser();b.run('globalThis.chamadas=[];globalThis.busca=adiarBusca(valor=>chamadas.push(valor));busca(1);busca(2);busca.executar();');
   assert.equal(b.run('chamadas.join()'),'2');assert.equal(b.timers.size,0);
   b.run('busca(3);busca.cancelar()');b.flush();assert.equal(b.run('chamadas.join()'),'2');
+});
+
+test('exclusão recusada mostra motivo do servidor e mantém catálogo sem recarregar',async()=>{
+  for(const status of [400,403,404,409,500]){
+    const b=browser();setProducts(b,products(2));b.run('renderProdutos()');
+    b.confirm((message,number)=>number===1);
+    const original=b.element('t-produtos').innerHTML;
+    const reason='Produto com histórico. Desative o produto em vez de excluí-lo.';
+    b.respond(async()=>({ok:false,status,json:async()=>({erro:reason})}));
+    await b.run('deletarProduto(1,"Produto 0001")');
+    assert.equal(b.requests.length,1,status);
+    assert.equal(b.requestDetails[0].options.method,'DELETE');
+    assert.equal(b.confirmations.length,status===400?2:1);
+    assert.equal(b.element('t-produtos').innerHTML,original);
+    assert.equal(b.run('produtos.length'),2);
+    assert.deepEqual(b.messages,[{message:reason,color:'var(--danger)'}]);
+  }
+});
+
+test('erro ou resposta inválida na exclusão não anuncia sucesso',async()=>{
+  for(const response of [
+    {ok:true,json:async()=>({erro:'Exclusão não autorizada'})},
+    {ok:true,json:async()=>({ok:false})},
+    {ok:true,json:async()=>null},
+    {ok:true,json:async()=>{throw new SyntaxError('JSON inválido');}},
+    {ok:false,status:502,json:async()=>{throw new SyntaxError('HTML do proxy');}},
+  ]){
+    const b=browser();setProducts(b,products(2));b.run('renderProdutos()');
+    const original=b.element('t-produtos').innerHTML;
+    b.respond(async()=>response);
+    await b.run('deletarProduto(1,"Produto 0001")');
+    assert.equal(b.requests.length,1);
+    assert.equal(b.messages.length,1);
+    assert.equal(b.messages[0].color,'var(--danger)');
+    assert.doesNotMatch(b.messages[0].message,/Removido/);
+    assert.equal(b.element('t-produtos').innerHTML,original);
+  }
+});
+
+test('falha de rede na exclusão informa incerteza e mantém dados atuais',async()=>{
+  const b=browser();setProducts(b,products(2));b.run('renderProdutos()');
+  const original=b.element('t-produtos').innerHTML;
+  b.respond(async()=>{throw new TypeError('Failed to fetch');});
+  await b.run('deletarProduto(1,"Produto 0001")');
+  assert.equal(b.requests.length,1);
+  assert.equal(b.run('produtos.length'),2);
+  assert.equal(b.element('t-produtos').innerHTML,original);
+  assert.equal(b.messages.length,1);
+  assert.match(b.messages[0].message,/Não foi possível confirmar a exclusão/);
+  assert.match(b.messages[0].message,/atualize a lista/);
+});
+
+test('exclusão aceita anuncia sucesso e força atualização sem perder busca por palavras',async()=>{
+  const b=browser();
+  const items=[
+    {...products(1)[0],nome:'Molho de Pizza'},
+    {...products(1)[0],id:2,codigo:'P2',nome:'Molho de Pizza Especial'},
+  ];
+  setProducts(b,items);b.type('pizza molho');b.flush();
+  let concludeDelete;
+  b.respond(async(url,options)=>{
+    if(options.method==='DELETE') return new Promise(resolve=>{concludeDelete=resolve;});
+    return {ok:true,json:async()=>url==='/api/produtos'?items.slice(1):[{id:1,nome:'Alimentos'}]};
+  });
+  const pending=b.run('deletarProduto(1,"Molho de Pizza")');
+  assert.equal(b.messages.length,0);
+  assert.equal(rows(b),2);
+  concludeDelete({ok:true,json:async()=>({ok:true})});
+  await pending;
+  assert.deepEqual(b.requests,['/api/produtos/1','/api/produtos','/api/categorias']);
+  assert.deepEqual(b.messages,[{message:'Removido',color:'var(--danger)'}]);
+  assert.equal(b.element('busca-produto').value,'pizza molho');
+  assert.equal(rows(b),1);
+  assert.match(b.element('t-produtos').innerHTML,/Molho de Pizza Especial/);
+  assert.equal(b.run('produtos.length'),1);
+});
+
+test('exclusão aceita renova snapshot mesmo com leitura anterior em andamento',async()=>{
+  const b=browser();setProducts(b,products(2));b.run('renderProdutos()');
+  const previous=[];
+  b.respond(url=>new Promise(resolve=>previous.push({url,resolve})));
+  const old=b.run('carregarProdutos()');
+  b.respond(async(url,options)=>({ok:true,json:async()=>options.method==='DELETE'?{ok:true}
+    :url==='/api/produtos'?products(1):[{id:1,nome:'Alimentos'}]}));
+  await b.run('deletarProduto(2,"Produto 0002")');
+  assert.equal(rows(b),1);
+  for(const {url,resolve} of previous){
+    resolve({ok:true,json:async()=>url==='/api/produtos'?products(2):[]});
+  }
+  assert.equal(await old,false);
+  assert.equal(rows(b),1);
+  assert.equal(b.run('produtos.length'),1);
+});
+
+test('cancelar exclusão não envia DELETE nem oferece desativação',async()=>{
+  const b=browser();setProducts(b,products(2));b.run('renderProdutos()');
+  b.confirm(()=>false);
+  await b.run('deletarProduto(1,"Produto 0001")');
+  assert.equal(b.requests.length,0);
+  assert.equal(b.confirmations.length,1);
+  assert.equal(b.messages.length,0);
+  assert.equal(rows(b),2);
+});
+
+test('desativação após exclusão bloqueada exige confirmação e atualiza produto existente',async()=>{
+  const b=browser();setProducts(b,products(2));b.run('renderProdutos()');
+  const reason='Produto com histórico. Desative o produto em vez de excluí-lo.';
+  b.respond(async(url,options)=>{
+    if(options.method==='DELETE') return {ok:false,status:400,json:async()=>({erro:reason})};
+    if(options.method==='PUT') return {ok:true,json:async()=>({ok:true,ativo:false})};
+    return {ok:true,json:async()=>url==='/api/produtos'
+      ?products(2).map(p=>({...p,ativo:p.id===1?0:1})):[{id:1,nome:'Alimentos'}]};
+  });
+  await b.run('deletarProduto(1,"Produto 0001")');
+  assert.equal(b.confirmations.length,2);
+  assert.match(b.confirmations[1],/Deseja desativar "Produto 0001" agora/);
+  assert.match(b.confirmations[1],/Produto com histórico/);
+  assert.deepEqual(b.requests,['/api/produtos/1','/api/produtos/1/ativo','/api/produtos','/api/categorias']);
+  assert.equal(b.requestDetails[1].options.method,'PUT');
+  assert.equal(b.requestDetails[1].options.headers['Content-Type'],'application/json');
+  assert.deepEqual(JSON.parse(b.requestDetails[1].options.body),{ativo:false});
+  assert.deepEqual(b.messages,[{message:'"Produto 0001" desativado.',color:undefined}]);
+  assert.equal(rows(b),1);
+  assert.equal(b.run('produtos.length'),2);
+  assert.equal(b.run('produtos.find(p=>p.id===1).ativo'),0);
+});
+
+test('desativação recusada ou sem confirmação válida do servidor não anuncia sucesso',async()=>{
+  for(const response of [
+    {ok:false,status:403,json:async()=>({erro:'Sem permissão para desativar'})},
+    {ok:true,json:async()=>({erro:'Operação recusada'})},
+    {ok:true,json:async()=>({ok:true,ativo:true})},
+    {ok:true,json:async()=>null},
+    {ok:true,json:async()=>{throw new SyntaxError('JSON inválido');}},
+    {ok:false,status:502,json:async()=>{throw new SyntaxError('HTML do proxy');}},
+  ]){
+    const b=browser();setProducts(b,products(2));b.run('renderProdutos()');
+    const original=b.element('t-produtos').innerHTML;
+    b.respond(async(url,options)=>options.method==='DELETE'
+      ?{ok:false,status:400,json:async()=>({erro:'Produto com histórico'})}:response);
+    await b.run('deletarProduto(1,"Produto 0001")');
+    assert.equal(b.requests.length,2);
+    assert.equal(b.messages.length,1);
+    assert.equal(b.messages[0].color,'var(--danger)');
+    assert.doesNotMatch(b.messages[0].message,/Removido|"Produto 0001" desativado/);
+    assert.equal(b.element('t-produtos').innerHTML,original);
+    assert.equal(b.run('produtos[0].ativo'),1);
+  }
+});
+
+test('falha de rede na desativação informa incerteza sem alterar catálogo',async()=>{
+  const b=browser();setProducts(b,products(2));b.run('renderProdutos()');
+  const original=b.element('t-produtos').innerHTML;
+  b.respond(async(url,options)=>{
+    if(options.method==='DELETE') return {ok:false,status:400,json:async()=>({erro:'Produto com histórico'})};
+    throw new TypeError('Failed to fetch');
+  });
+  await b.run('deletarProduto(1,"Produto 0001")');
+  assert.equal(b.requests.length,2);
+  assert.equal(b.messages.length,1);
+  assert.match(b.messages[0].message,/Não foi possível confirmar a desativação/);
+  assert.match(b.messages[0].message,/atualize a lista/);
+  assert.equal(b.element('t-produtos').innerHTML,original);
 });

@@ -107,6 +107,11 @@ Você verá a mensagem:
 🚀  Servidor rodando em http://127.0.0.1:5000
 ```
 
+Na primeira criação do banco, o terminal também mostra o usuário `admin` e
+uma senha inicial aleatória. Anote-a antes de fechar a janela. Entre com ela
+e altere a senha pela aplicação. Nas próximas inicializações ela não será
+exibida; as contas e senhas existentes são preservadas.
+
 ---
 
 ### 6. Acessar o sistema
@@ -131,7 +136,10 @@ O banco de dados é criado automaticamente como um arquivo chamado **`estoque.db
 - Funciona sem internet
 - Suporta bem até ~100.000 produtos
 
-**Para fazer backup:** basta copiar o arquivo `estoque.db`.
+**Para fazer backup:** use `backup_externo.bat` no Windows ou execute
+`python backup_banco.py "caminho/do/backup.db"`. A cópia pela API do SQLite
+inclui os dados do WAL e funciona com o servidor em uso; copiar apenas o
+arquivo `estoque.db` enquanto o sistema está aberto pode deixar dados de fora.
 
 **Para resetar o banco:** exclua o arquivo `estoque.db` e reinicie o servidor.
 
