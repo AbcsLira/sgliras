@@ -86,6 +86,7 @@ function irParaPagina(page){
   if(page==='usuarios')      { carregarUsuarios(); verificarStatusBackup(); }
   if(page==='log-auditoria') carregarLogAuditoria();
   if(page==='fin-fechamento')     finIniciarFechamento();
+  if(page==='fin-cartoes')        cartoesIniciar();
   if(page==='fin-paes')           paesIniciar();
   if(page==='fin-massas')         massaIniciar();
   if(page==='fin-contas-pagar') finCarregarContasPagar({atualizar:true});

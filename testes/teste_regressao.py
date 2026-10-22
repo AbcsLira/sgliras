@@ -44,7 +44,7 @@ class RegressionTests(unittest.TestCase):
         baseline = json.loads((Path(__file__).parent / 'dados_referencia/http_anterior.json').read_text(encoding='utf-8'))
         added_routes = {'/api/movimentacoes/lote', '/api/fin/contas-pagar/lote'}
         routes = sorted((r.rule, r.endpoint, sorted(r.methods)) for r in self.app.url_map.iter_rules()
-                        if r.rule not in added_routes)
+                        if r.rule not in added_routes and not r.rule.startswith('/api/fin/cartoes/'))
         self.assertEqual(json.loads(json.dumps(routes)), baseline['routes'])
         for role in (None, 'admin', 'caixa', 'estoquista'):
             # Permissions now come from the current user record, not stale cookies.
@@ -56,7 +56,9 @@ class RegressionTests(unittest.TestCase):
                 if role:
                     session.update(usuario_id=1, usuario='admin', nome='Administrador', perfil=role)
             for rule in self.app.url_map.iter_rules():
-                if 'GET' not in rule.methods or rule.rule.startswith('/static'):
+                # A nova API possui testes próprios; o contrato legado permanece exato.
+                if ('GET' not in rule.methods or rule.rule.startswith('/static')
+                        or rule.rule.startswith('/api/fin/cartoes/')):
                     continue
                 url = re.sub(r'<(?:[^:>]+:)?([^>]+)>', lambda m:
                              '2026-10-01' if m[1] == 'data' else

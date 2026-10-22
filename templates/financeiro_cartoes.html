@@ -1,0 +1,215 @@
+<section id="page-fin-cartoes" class="page" aria-labelledby="cartoes-titulo">
+  <div class="cartoes-cabecalho">
+    <div>
+      <h1 id="cartoes-titulo" class="page-title">Cartões e recebíveis</h1>
+      <p class="cartoes-nota">Lance os totais diários e acompanhe o que cada operadora tem a repassar.</p>
+    </div>
+    <div class="cartoes-acoes">
+      <button type="button" class="btn btn-ghost" onclick="cartoesAtualizar()">Atualizar</button>
+      <button type="button" class="btn btn-primary" onclick="cartoesGerarPDF(document.getElementById('cartoes-mes').value,document.getElementById('cartoes-operadora').value)">Gerar PDF</button>
+    </div>
+  </div>
+
+  <div class="cartoes-filtros">
+    <div class="cartoes-campo">
+      <label for="cartoes-mes">Mês de referência</label>
+      <input id="cartoes-mes" class="fin-input" type="month" required onchange="cartoesAtualizar()">
+    </div>
+    <div class="cartoes-campo">
+      <label for="cartoes-operadora">Operadora</label>
+      <select id="cartoes-operadora" class="fin-input" onchange="cartoesAtualizar()">
+        <option value="">Todas as operadoras</option>
+        <option value="cielo">Cielo</option>
+        <option value="rede">Rede</option>
+        <option value="sipag">Sipag</option>
+      </select>
+    </div>
+    <div class="cartoes-legenda" aria-label="Identificação das operadoras">
+      <span class="cartoes-operadora cartoes-op-cielo">Cielo</span>
+      <span class="cartoes-operadora cartoes-op-rede">Rede</span>
+      <span class="cartoes-operadora cartoes-op-sipag">Sipag</span>
+    </div>
+  </div>
+  <p id="cartoes-estado" class="cartoes-nota" role="status" aria-live="polite"></p>
+  <div id="cartoes-aviso" class="cartoes-aviso" role="alert" aria-live="polite" hidden></div>
+
+  <div class="cartoes-abas" role="tablist" aria-label="Seções de cartões">
+    <button id="cartoes-aba-recebiveis" type="button" class="cartoes-aba active" role="tab" aria-selected="true" aria-controls="cartoes-painel-recebiveis" data-cartoes-aba="recebiveis" onclick="cartoesTrocarAba('recebiveis')">Recebíveis</button>
+    <button id="cartoes-aba-vendas" type="button" class="cartoes-aba" role="tab" aria-selected="false" aria-controls="cartoes-painel-vendas" data-cartoes-aba="vendas" onclick="cartoesTrocarAba('vendas')">Vendas</button>
+    <button id="cartoes-aba-condicoes" type="button" class="cartoes-aba" role="tab" aria-selected="false" aria-controls="cartoes-painel-condicoes" data-cartoes-aba="condicoes" onclick="cartoesTrocarAba('condicoes')">Taxas e prazos</button>
+  </div>
+
+  <div id="cartoes-painel-recebiveis" class="cartoes-painel" role="tabpanel" aria-labelledby="cartoes-aba-recebiveis">
+    <p class="cartoes-nota">As parcelas e o saldo seguem a data prevista. O recebido no mês segue a data real do recebimento, inclusive de parcelas previstas para outro mês.</p>
+    <div id="cartoes-resumo" class="cartoes-resumo"></div>
+    <div id="cartoes-pendentes" class="cartoes-pendentes"></div>
+    <div id="cartoes-por-operadora" class="cartoes-por-operadora"></div>
+
+    <div class="cartoes-secao-cabecalho">
+      <h2 class="cartoes-subtitulo">Parcelas do mês previsto</h2>
+    </div>
+    <p class="cartoes-nota">Prazos em dias úteis consideram segunda a sexta, sem feriados. Use “Ajustar data” quando o calendário da operadora exigir.</p>
+    <div class="table-wrap cartoes-tabela-rolagem" tabindex="0" aria-label="Parcelas do mês previsto; role horizontalmente para ver todas as colunas">
+      <table class="cartoes-tabela-parcelas">
+        <thead><tr><th>Previsto em</th><th>Operadora</th><th>Modalidade / bandeira</th><th>Venda</th><th>Parcela</th><th>Bruto</th><th>Taxa (R$)</th><th>Líquido</th><th>Recebido</th><th>Status</th><th>Diferença</th><th>Ações</th></tr></thead>
+        <tbody id="cartoes-parcelas"><tr><td colspan="12" class="empty">Selecione o mês para consultar.</td></tr></tbody>
+      </table>
+    </div>
+
+    <div id="cartoes-parcela-editor" class="cartoes-editor" hidden>
+      <h2 id="cartoes-parcela-titulo" class="cartoes-subtitulo">Registrar recebimento</h2>
+      <p id="cartoes-parcela-detalhe" class="cartoes-nota"></p>
+      <form id="cartoes-parcela-formulario" onsubmit="cartoesSalvarParcela(event)">
+        <div id="cartoes-recebimento-campos" class="cartoes-grade-formulario">
+          <div class="cartoes-campo">
+            <label for="cartoes-recebimento-data">Data real do recebimento *</label>
+            <input id="cartoes-recebimento-data" class="fin-input" type="date" required>
+          </div>
+          <div class="cartoes-campo">
+            <label for="cartoes-recebimento-valor">Valor recebido (R$) *</label>
+            <input id="cartoes-recebimento-valor" class="fin-input" type="number" min="0" max="10000000" step="0.01" required>
+            <button type="button" class="btn btn-ghost btn-sm cartoes-usar-previsto" onclick="cartoesUsarPrevisto()">Usar valor previsto</button>
+          </div>
+          <div class="cartoes-campo cartoes-campo-largo">
+            <label for="cartoes-recebimento-observacao">Observação do recebimento</label>
+            <textarea id="cartoes-recebimento-observacao" class="fin-input" rows="2" maxlength="2000"></textarea>
+          </div>
+        </div>
+        <div id="cartoes-previsao-campos" class="cartoes-grade-formulario" hidden>
+          <div class="cartoes-campo">
+            <label for="cartoes-previsao-data">Nova data prevista *</label>
+            <input id="cartoes-previsao-data" class="fin-input" type="date" required>
+          </div>
+        </div>
+        <div id="cartoes-parcela-aviso" class="cartoes-aviso" role="alert" aria-live="polite" hidden></div>
+        <div class="cartoes-acoes cartoes-acoes-formulario">
+          <button type="button" class="btn btn-ghost" onclick="cartoesFecharParcela()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="cartoes-secao-cabecalho">
+      <h2 class="cartoes-subtitulo">Agenda mês a mês</h2>
+    </div>
+    <p class="cartoes-nota">Todos os meses com previsão ou recebimento da operadora selecionada, incluindo parcelas de vendas em 2x.</p>
+    <div class="table-wrap cartoes-tabela-rolagem" tabindex="0" aria-label="Agenda mensal de recebíveis">
+      <table><thead><tr><th>Mês</th><th>Líquido previsto</th><th>Saldo a receber</th><th>Recebido no mês</th></tr></thead>
+        <tbody id="cartoes-agenda"><tr><td colspan="4" class="empty">Nenhuma agenda carregada.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="cartoes-painel-vendas" class="cartoes-painel" role="tabpanel" aria-labelledby="cartoes-aba-vendas" hidden>
+    <div class="cartoes-secao-cabecalho">
+      <h2 class="cartoes-subtitulo">Totais diários de vendas</h2>
+      <button type="button" class="btn btn-primary" onclick="cartoesNovaVenda()">+ Lançar total diário</button>
+    </div>
+    <p class="cartoes-nota">Informe um total por dia, operadora, modalidade e bandeira. Os lançamentos são manuais e independentes do fechamento diário.</p>
+    <div id="cartoes-venda-editor" class="cartoes-editor" hidden>
+      <h2 id="cartoes-venda-titulo" class="cartoes-subtitulo">Lançar total diário</h2>
+      <form id="cartoes-venda-formulario" onsubmit="cartoesSalvarVenda(event)">
+        <div class="cartoes-grade-formulario">
+          <div class="cartoes-campo">
+            <label for="cartoes-venda-operadora">Operadora *</label>
+            <select id="cartoes-venda-operadora" class="fin-input" required><option value="">Selecione</option><option value="cielo">Cielo</option><option value="rede">Rede</option><option value="sipag">Sipag</option></select>
+          </div>
+          <div class="cartoes-campo">
+            <label for="cartoes-venda-modalidade">Modalidade *</label>
+            <select id="cartoes-venda-modalidade" class="fin-input" required><option value="">Selecione</option><option value="debito">Débito</option><option value="credito">Crédito à vista</option><option value="credito_2x">Crédito em 2x</option><option value="voucher">Voucher</option></select>
+          </div>
+          <div class="cartoes-campo">
+            <label for="cartoes-venda-bandeira">Bandeira</label>
+            <input id="cartoes-venda-bandeira" class="fin-input" type="text" maxlength="80" placeholder="Opcional">
+          </div>
+          <div class="cartoes-campo">
+            <label for="cartoes-venda-data">Data da venda *</label>
+            <input id="cartoes-venda-data" class="fin-input" type="date" required>
+          </div>
+          <div class="cartoes-campo">
+            <label for="cartoes-venda-valor">Total bruto (R$) *</label>
+            <input id="cartoes-venda-valor" class="fin-input" type="number" min="0.01" max="10000000" step="0.01" required>
+          </div>
+          <div class="cartoes-campo cartoes-campo-largo">
+            <label for="cartoes-venda-observacao">Observação</label>
+            <textarea id="cartoes-venda-observacao" class="fin-input" rows="2" maxlength="2000"></textarea>
+          </div>
+        </div>
+        <div id="cartoes-venda-aviso" class="cartoes-aviso" role="alert" aria-live="polite" hidden></div>
+        <div class="cartoes-acoes cartoes-acoes-formulario">
+          <button type="button" class="btn btn-ghost" onclick="cartoesFecharVenda()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar venda</button>
+        </div>
+      </form>
+    </div>
+    <div class="table-wrap cartoes-tabela-rolagem" tabindex="0" aria-label="Totais diários de vendas por cartão">
+      <table class="cartoes-tabela-vendas">
+        <thead><tr><th>Venda</th><th>Operadora</th><th>Modalidade</th><th>Bandeira</th><th>Bruto</th><th>Taxa (%)</th><th>Situação</th><th>Observação</th><th>Ações</th></tr></thead>
+        <tbody id="cartoes-vendas-lista"><tr><td colspan="9" class="empty">Nenhuma venda carregada.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="cartoes-painel-condicoes" class="cartoes-painel" role="tabpanel" aria-labelledby="cartoes-aba-condicoes" hidden>
+    <div class="cartoes-secao-cabecalho">
+      <h2 class="cartoes-subtitulo">Taxas e prazos por vigência</h2>
+      <div class="cartoes-acoes">
+        <button type="button" class="btn btn-ghost" onclick="cartoesCalcularPendentes()">Calcular vendas pendentes</button>
+        <button type="button" class="btn btn-primary" onclick="cartoesNovaCondicao()">+ Cadastrar condição</button>
+      </div>
+    </div>
+    <p class="cartoes-nota">Cadastre as condições contratadas com cada operadora. Uma condição de bandeira específica prevalece sobre a padrão, que tem bandeira em branco.</p>
+    <p class="cartoes-nota">Novas condições não alteram vendas já calculadas. “Calcular vendas pendentes” aplica as condições apenas às vendas que ainda estão sem configuração.</p>
+    <div id="cartoes-condicao-editor" class="cartoes-editor" hidden>
+      <h2 id="cartoes-condicao-titulo" class="cartoes-subtitulo">Cadastrar condição</h2>
+      <form id="cartoes-condicao-formulario" onsubmit="cartoesSalvarCondicao(event)">
+        <div class="cartoes-grade-formulario">
+          <div class="cartoes-campo">
+            <label for="cartoes-condicao-operadora">Operadora *</label>
+            <select id="cartoes-condicao-operadora" class="fin-input" required><option value="">Selecione</option><option value="cielo">Cielo</option><option value="rede">Rede</option><option value="sipag">Sipag</option></select>
+          </div>
+          <div class="cartoes-campo">
+            <label for="cartoes-condicao-modalidade">Modalidade *</label>
+            <select id="cartoes-condicao-modalidade" class="fin-input" required onchange="cartoesAlternarIntervalo()"><option value="">Selecione</option><option value="debito">Débito</option><option value="credito">Crédito à vista</option><option value="credito_2x">Crédito em 2x</option><option value="voucher">Voucher</option></select>
+          </div>
+          <div class="cartoes-campo">
+            <label for="cartoes-condicao-bandeira">Bandeira</label>
+            <input id="cartoes-condicao-bandeira" class="fin-input" type="text" maxlength="80" placeholder="Em branco: condição padrão">
+          </div>
+          <div class="cartoes-campo">
+            <label for="cartoes-condicao-inicio">Início da vigência *</label>
+            <input id="cartoes-condicao-inicio" class="fin-input" type="date" required>
+          </div>
+          <div class="cartoes-campo">
+            <label for="cartoes-condicao-taxa">Taxa contratada (%) *</label>
+            <input id="cartoes-condicao-taxa" class="fin-input" type="number" min="0" max="100" step="0.000001" required>
+          </div>
+          <div class="cartoes-campo">
+            <label for="cartoes-condicao-prazo">Prazo do primeiro repasse (dias) *</label>
+            <input id="cartoes-condicao-prazo" class="fin-input" type="number" min="0" max="365" step="1" required>
+          </div>
+          <div class="cartoes-campo">
+            <label for="cartoes-condicao-tipo">Contagem dos dias *</label>
+            <select id="cartoes-condicao-tipo" class="fin-input" required><option value="">Selecione</option><option value="corridos">Dias corridos</option><option value="uteis">Dias úteis (segunda a sexta)</option></select>
+          </div>
+          <div id="cartoes-condicao-intervalo-grupo" class="cartoes-campo" hidden>
+            <label for="cartoes-condicao-intervalo">Intervalo entre parcelas em 2x (dias) *</label>
+            <input id="cartoes-condicao-intervalo" class="fin-input" type="number" min="1" max="365" step="1" disabled>
+          </div>
+        </div>
+        <p class="cartoes-nota">Nenhuma taxa ou prazo é presumido. Dias úteis não incluem feriados automaticamente; a previsão pode ser ajustada na parcela.</p>
+        <div id="cartoes-condicao-aviso" class="cartoes-aviso" role="alert" aria-live="polite" hidden></div>
+        <div class="cartoes-acoes cartoes-acoes-formulario">
+          <button type="button" class="btn btn-ghost" onclick="cartoesFecharCondicao()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar condição</button>
+        </div>
+      </form>
+    </div>
+    <div class="table-wrap cartoes-tabela-rolagem" tabindex="0" aria-label="Condições de taxas e prazos">
+      <table class="cartoes-tabela-condicoes">
+        <thead><tr><th>Operadora</th><th>Modalidade</th><th>Bandeira</th><th>Vigência desde</th><th>Taxa</th><th>Prazo</th><th>Intervalo em 2x</th><th>Ações</th></tr></thead>
+        <tbody id="cartoes-condicoes-lista"><tr><td colspan="8" class="empty">Nenhuma condição carregada.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>

@@ -23,6 +23,15 @@ function recuperarOperacaoPendente(estado){
       const payload=JSON.parse(salva.conteudo);
       const formatoValido=estado.tipo==='movimentacao'
         ? payload&&Number.isInteger(payload.produto_id)&&typeof payload.tipo==='string'
+        : estado.tipo==='cartoes-venda'
+        ? payload&&typeof payload==='object'&&!Array.isArray(payload)&&
+          ['cielo','rede','sipag'].includes(payload.operadora_id)&&
+          ['debito','credito','credito_2x','voucher'].includes(payload.modalidade)&&
+          typeof payload.data_venda==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(payload.data_venda)&&
+          ['string','number'].includes(typeof payload.valor_bruto)&&
+          Number.isFinite(Number(payload.valor_bruto))&&Number(payload.valor_bruto)>0&&
+          Number(payload.valor_bruto)<=10000000&&typeof payload.bandeira==='string'&&
+          typeof payload.observacao==='string'
         : payload&&Array.isArray(payload.itens)&&payload.itens.length>0;
       if(formatoValido){
         Object.assign(estado,{incerta:true,operacaoId:salva.operacaoId,conteudo:salva.conteudo,payloadOriginal:payload});

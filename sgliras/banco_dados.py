@@ -274,6 +274,8 @@ def _initialize_db(conn):
         INSERT OR IGNORE INTO categorias (nome) VALUES
             ('Alimentos'),('Bebidas'),('Limpeza'),('Embalagens'),('Outros'),('Molhos'),('Oficina'),('Gelatos');
     """)
+    from .cartoes import inicializar_tabelas
+    inicializar_tabelas(conn)
     # Preserva categorias existentes, inclusive 'Oficinas', que pode estar em
     # uso por produtos. Migrações só ignoram colunas comprovadamente existentes.
     for table, column, definition in [

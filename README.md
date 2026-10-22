@@ -47,6 +47,8 @@ Sistema de gestão desenvolvido sob medida para uma lanchonete, cobrindo control
 - Controle de fornecimento e pagamento de itens recorrentes (ex: pães, insumos por peso)
 - Metas mensais de venda com acompanhamento visual
 - Relatórios: resumo mensal, comparativo mês a mês, comparativo de finais de semana, resultado do período
+- Cartões e recebíveis independente do fechamento diário: Cielo, Rede e Sipag,
+  com taxas por vigência, conciliação manual e relatório para impressão/PDF.
 
 <img width="1600" height="950" alt="06_fechamento_diario" src="https://github.com/user-attachments/assets/5071b4df-61bb-47c5-a0fe-9d83d2c7ac5a" />
 
@@ -112,6 +114,43 @@ sg-liras/
 ```
 
 Veja [ARQUITETURA.md](ARQUITETURA.md) para o mapa dos módulos e os comandos de teste.
+
+## Cartões e recebíveis
+
+No menu Financeiro, abra **Cartões e recebíveis**. O módulo é acessível aos
+administradores e funciona mesmo sem preencher o fechamento diário. Os
+lançamentos não são somados automaticamente às contas ou ao fechamento,
+evitando duplicar os valores já registrados nesses módulos.
+
+1. Em **Taxas e prazos**, cadastre as condições contratadas: operadora,
+   modalidade, taxa, início da vigência e prazo de repasse. A bandeira é
+   opcional; em branco, a condição serve como padrão. Uma condição específica
+   vigente tem prioridade sobre o padrão.
+2. Em **Vendas**, informe o total bruto por dia, operadora, modalidade e
+   bandeira. São aceitos débito, crédito à vista, crédito em 2x e voucher,
+   sem antecipação. Em 2x, informe também o intervalo contratado entre parcelas.
+3. Em **Recebíveis**, acompanhe a agenda mensal, registre o valor e a data
+   realmente recebidos e confira diferenças. Um recebimento com diferença
+   liquida a parcela e aparece destacado; para corrigir, estorne e registre
+   novamente. Vendas com recebimentos exigem estorno antes de editar ou excluir.
+
+Taxas e prazos não são presumidos. É possível lançar vendas antes de configurá-los:
+elas ficam sinalizadas e não entram na previsão até usar **Calcular vendas
+pendentes**. Vendas já calculadas preservam a condição aplicada na época;
+cadastrar uma nova taxa não muda o histórico. Editar explicitamente uma venda
+ainda não recebida recalcula sua previsão. Taxa zero também é válida.
+
+O filtro mensal das parcelas usa a **data prevista**; o total **recebido no mês**
+usa a data real de recebimento, inclusive de parcelas previstas em outros meses.
+A agenda mostra todos os meses com previsões ou recebimentos da operadora
+selecionada. Dias úteis consideram segunda a sexta, sem calendário de feriados;
+a data prevista de uma parcela em aberto pode ser ajustada conforme a operadora.
+
+Use **Gerar PDF** e escolha **Salvar como PDF** no diálogo de impressão do
+navegador. O relatório inclui resumo, parcelas, diferenças, agenda mensal e
+pendências de configuração, identificando Cielo em azul, Rede em laranja e
+Sipag em verde, sempre acompanhadas dos nomes. O preenchimento é manual;
+nesta versão não há importação de planilhas ou de arquivos das operadoras.
 
 ## 📌 Sobre o projeto
 

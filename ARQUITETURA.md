@@ -26,6 +26,8 @@ das APIs nem os nomes e caminhos dos dados locais.
 - `sgliras/rotas/`: autenticação, usuários, estoque, dashboard, receitas,
   fornecedores, inventário, relatórios e administração de backups.
 - `sgliras/rotas/financeiro_*.py`: fechamento diário, contas, pães, massas e relatórios.
+- `sgliras/cartoes.py`: condições, vendas e parcelas de cartões, em centavos.
+- `sgliras/rotas/financeiro_cartoes.py`: API administrativa de cartões e recebíveis.
 
 Cada módulo de rotas declara suas funções e expõe `register_routes(app)`.
 O registro mantém as URLs e os nomes dos endpoints existentes, incluindo
@@ -44,6 +46,9 @@ contexto Flask (`with app.app_context():` fora de uma requisição).
 - `static/css/`: estilos separados da aplicação e do login.
 - `static/js/login.js`: autenticação da tela de login.
 - `static/js/modules/`: scripts separados por área funcional.
+- `templates/financeiro_cartoes.html`, `static/css/cartoes.css` e
+  `static/js/modules/financeiro_cartoes.js`: tela independente de cartões.
+- `static/js/modules/relatorio_cartoes.js`: relatório de cartões para impressão/PDF.
 
 Os scripts são carregados na ordem declarada em `templates/index.html`.
 Continuam sendo scripts clássicos: os manipuladores usados por `onclick` e o
@@ -153,3 +158,29 @@ Em um banco sem usuários, `init_db()` gera uma senha aleatória para o primeiro
 administrador e a retorna apenas após confirmar a transação. `app.py` mostra
 essa senha uma única vez no terminal. Reinicializar um banco com usuários
 preserva senhas e logins, inclusive se o administrador tiver sido renomeado.
+
+## Cartões e recebíveis
+
+As tabelas `fin_cartoes_condicoes`, `fin_cartoes_vendas` e `fin_cartoes_parcelas`
+são acrescentadas na inicialização, dentro da transação de migração. A API
+fica em `/api/fin/cartoes/` e exige administrador em todas as operações.
+O módulo não grava no fechamento diário nem nas contas a receber existentes.
+
+Valores monetários são inteiros em centavos, calculados com Decimal. Em 2x,
+a taxa total é arredondada antes da divisão; as parcelas preservam o bruto,
+a taxa e o líquido totais. A venda mantém uma cópia da condição aplicada,
+mesmo se as condições comerciais mudarem. Sem condição vigente, a venda fica
+pendente e não gera datas ou valores líquidos estimados.
+
+O total diário é único por data, operadora, modalidade e bandeira normalizada.
+A inclusão usa `run_operation` e a interface conserva a chave da tentativa
+quando a resposta se perde, inclusive após recarregar a aba. Gravações e
+auditoria compartilham a mesma transação. Recebimento de zero também é um
+recebimento: protege a venda contra edição/exclusão até ser estornado.
+
+Parcelas são filtradas pelo mês previsto; recebido no mês usa a data real,
+mesmo para parcelas previstas em outro mês. Diferenças em parcelas recebidas
+não permanecem no saldo em aberto. A agenda agrega todas as datas do filtro
+de operadora. Dias úteis excluem somente fins de semana; feriados podem ser
+ajustados manualmente na previsão. O relatório PDF usa a impressão do navegador,
+com Inter local e texto escapado. Não há dependências de Excel ou importação.

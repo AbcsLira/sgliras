@@ -1,5 +1,5 @@
 """Registro dos módulos, preservando URLs e nomes dos endpoints."""
-from . import autenticacao, usuarios, estoque, painel, receitas, copias_seguranca, fornecedores, inventario, relatorios, financeiro_diario, financeiro_contas, financeiro_paes, financeiro_massas, financeiro_relatorios
+from . import autenticacao, usuarios, estoque, painel, receitas, copias_seguranca, fornecedores, inventario, relatorios, financeiro_diario, financeiro_contas, financeiro_paes, financeiro_massas, financeiro_relatorios, financeiro_cartoes
 
 def register_routes(app):
     autenticacao.register_routes(app)
@@ -16,3 +16,4 @@ def register_routes(app):
     financeiro_paes.register_routes(app)
     financeiro_massas.register_routes(app)
     financeiro_relatorios.register_routes(app)
+    financeiro_cartoes.register_routes(app)

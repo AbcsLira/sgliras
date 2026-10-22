@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>S.G. Lira's</title>
 <link rel="stylesheet" href="/static/css/index.css">
+<link rel="stylesheet" href="/static/css/cartoes.css">
 </head>
 <body>
 <div class="shell">
@@ -70,6 +71,9 @@
         </div>
         <div class="nav-item" data-page="fin-contas-receber" title="Contas a Receber" data-perm="financeiro">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> <span>Contas a Receber</span>
+        </div>
+        <div class="nav-item" data-page="fin-cartoes" title="Cartões e recebíveis" data-perm="financeiro">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4"/></svg> <span>Cartões e recebíveis</span>
         </div>
         <div class="nav-item" data-page="fin-resumo" title="Resumo Mensal" data-perm="financeiro">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="12" y="6" width="3" height="11"/><rect x="17" y="13" width="3" height="4"/></svg> <span>Resumo Mensal</span>
@@ -1101,6 +1105,7 @@
     <div id="resultado-vazio" style="color:var(--muted);font-size:13px">Selecione um mês e clique em "Ver resultado".</div>
   </section>
 
+  {% include 'financeiro_cartoes.html' %}
 </main>
 </div>
 
@@ -1800,6 +1805,8 @@
 <script src="/static/js/modules/financeiro_paes.js"></script>
 <script src="/static/js/modules/financeiro_massas.js"></script>
 <script src="/static/js/modules/financeiro_relatorios.js"></script>
+<script src="/static/js/modules/relatorio_cartoes.js"></script>
+<script src="/static/js/modules/financeiro_cartoes.js"></script>
 <script src="/static/js/modules/navegacao.js"></script>
 </body>
 </html>
